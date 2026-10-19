@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
+
+<meta name="viewport"
+content="width=device-width,
+initial-scale=1,
+maximum-scale=1">
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -10,6 +16,60 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
+
+/* MOBIL */
+
+@media (max-width: 768px){
+
+    body{
+        padding:10px;
+    }
+
+    .row{
+        flex-direction:column;
+    }
+
+    .row .card{
+        min-width:100%;
+    }
+
+    input{
+        width:100%;
+        box-sizing:border-box;
+        margin:5px 0;
+        font-size:16px;
+    }
+
+    button{
+        width:100%;
+        margin-top:8px;
+        font-size:16px;
+    }
+
+    table{
+        display:block;
+        overflow-x:auto;
+        white-space:nowrap;
+    }
+
+    th,td{
+        min-width:100px;
+    }
+
+    .card{
+        padding:15px;
+    }
+
+    h1{
+        font-size:24px;
+    }
+
+    h2{
+        font-size:20px;
+    }
+
+}
+
 .success-popup{
     position:fixed;
     top:50%;
@@ -98,6 +158,11 @@ body{
     display:flex;
     gap:20px;
     flex-wrap:wrap;
+}
+
+.row .card{
+    flex:1;
+    min-width:320px;
 }
 
 .row .card{
