@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one column of receipt strips sorted by warranty end; add/edit, claim and backup in bottom sheets */
+/* Layout: one column of receipt strips sorted by warranty end; add/edit, claim, review and backup in bottom sheets */
 :root{
   --bg:#f3f4f2; --paper:#ffffff; --fg:#1d2421; --muted:#5f6964; --line:#dde1de;
   --accent:#1f6f5c; --accent-fg:#ffffff;
@@ -64,6 +64,7 @@ h1{font-size:1.6rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
 .list{display:flex;flex-direction:column;gap:10px}
 .item{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;cursor:pointer}
 .item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.item.ret .name{color:var(--muted)}
 .name{font-weight:600;overflow-wrap:anywhere}
 .meta{grid-column:1/-1;color:var(--muted);font-family:var(--mono);font-size:.78rem;display:flex;gap:4px 12px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
 .claimline{grid-column:1/-1;font-size:.82rem;font-weight:600;padding:6px 10px;border-radius:8px;margin-top:4px}
@@ -75,36 +76,61 @@ h1{font-size:1.6rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
 .note{font-size:.82rem;padding:9px 12px;border-radius:8px;margin:0}
 .note.w{color:var(--warn);background:var(--warnbg)}
 .note.i{color:var(--info);background:var(--infobg)}
+.note.bad{color:var(--bad);background:var(--badbg)}
 .empty{color:var(--muted);text-align:center;padding:30px 10px}
 .fab{position:fixed;right:max(16px,calc(16px + env(safe-area-inset-right,0px)));bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--accent-fg);border:0;border-radius:999px;padding:14px 20px;font:600 1rem var(--body);box-shadow:0 6px 18px rgba(0,0,0,.2);cursor:pointer;z-index:5}
 .toast{pointer-events:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.88rem;z-index:40;max-width:calc(100% - 32px);text-align:center}
 .sheet{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet.sub{z-index:22}
+#lsheet{z-index:24}
 .panel{background:var(--paper);width:100%;max-width:640px;max-height:92%;overflow:auto;-webkit-overflow-scrolling:touch;border-radius:16px 16px 0 0;padding-block:18px calc(18px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.panel:focus{outline:none}
+/* the panel scrolls; its children must keep their height instead of being squeezed */
+.panel>*{flex-shrink:0}
 .panel h2{margin:0;font-size:1.2rem}
 .panel h4{margin:6px 0 0;font-size:.78rem;font-family:var(--mono);font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .panel p{margin:0;font-size:.88rem;color:var(--muted)}
+.panel p.small,.small{font-size:.8rem;color:var(--muted);margin:-6px 0 0}
 label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted);font-weight:500;min-width:0}
 /* 16px prevents iOS from zooming into fields */
 input,textarea,select{font-family:var(--body);font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;width:100%;min-width:0;-webkit-appearance:none;appearance:none}
 input[type="date"]{min-height:44px}
+input[type="checkbox"],input[type="radio"]{width:20px;height:20px;min-height:0;padding:0;margin:1px 0 0;flex:none;border:0;background:none;-webkit-appearance:auto;appearance:auto;accent-color:var(--accent)}
 select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
 textarea{resize:vertical}
 .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.chk,.opt{flex-direction:row;align-items:flex-start;gap:10px;font-size:.92rem;color:var(--fg);font-weight:500}
+.opt{padding:9px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.chk small,.opt small{display:block;color:var(--muted);font-size:.78rem;font-weight:400}
+.opts{display:flex;flex-direction:column;gap:6px}
+.fs{display:flex;flex-direction:column;gap:6px;border:0;padding:0;margin:0;min-width:0}
+.fs legend{font-size:.82rem;color:var(--muted);font-weight:600;padding:0;margin-bottom:6px}
+.linkbtn{background:none;border:0;padding:0;font:600 .84rem var(--body);color:var(--accent);text-decoration:underline;cursor:pointer;align-self:flex-start;text-align:left}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 .btn{font:600 .95rem var(--body);border-radius:10px;padding:11px 16px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.btn:disabled{opacity:.6;cursor:default}
 .btn.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);flex:1}
 .btn.del{color:var(--bad)}
 .btn.armed{background:var(--bad);color:var(--paper);border-color:var(--bad)}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .thumb{position:relative;width:76px;height:76px;flex:none}
 .thumb img{width:100%;height:100%;border-radius:8px;border:1px solid var(--line);object-fit:cover;background:var(--bg);cursor:zoom-in;display:block}
-.thumb>[data-rm],.thumb>[data-rmpdf]{position:absolute;top:-7px;right:-7px;width:26px;height:26px;border-radius:50%;border:2px solid var(--paper);background:var(--bad);color:#fff;font:700 .9rem/1 var(--body);cursor:pointer;padding:0}
+.thumb .ph{width:100%;height:100%;border-radius:8px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;text-align:center;font-size:.7rem;color:var(--muted);padding:4px}
+.thumb>.rm{position:absolute;top:-7px;right:-7px;width:26px;height:26px;border-radius:50%;border:2px solid var(--paper);background:var(--bad);color:#fff;font:700 .9rem/1 var(--body);cursor:pointer;padding:0}
 .file-btn{position:relative;overflow:hidden;width:76px;height:76px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.78rem;padding:6px;border-style:dashed}
 .file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .claims{display:flex;flex-direction:column;gap:6px}
-.claim{font-size:.85rem;border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.claim{font:inherit;font-size:.85rem;border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;background:var(--paper);color:var(--fg);text-align:left;width:100%;cursor:pointer}
 .claim b{font-weight:600}
 .claim span{color:var(--muted);overflow-wrap:anywhere}
+.claim span.late{color:var(--bad);font-weight:600}
+.claims>p{margin:0;font-size:.88rem;color:var(--muted)}
+.logrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;font-size:.85rem;padding:7px 0;border-bottom:1px solid var(--line);align-items:start}
+.logrow .d{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.logrow .t{overflow-wrap:anywhere}
+.logrow.s .t{color:var(--muted);font-style:italic}
+.logrow button{background:none;border:0;color:var(--muted);font:600 1rem var(--body);cursor:pointer;padding:0 4px}
+.logadd{display:grid;grid-template-columns:minmax(0,10em) minmax(0,1fr);gap:8px}
 .viewer{position:fixed;inset:0;background:#000;z-index:30;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 .viewer img{max-width:100%;max-height:100%;object-fit:contain}
 .viewer button{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));font:600 .95rem var(--body);background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:999px;padding:9px 14px}
@@ -118,7 +144,7 @@ textarea{resize:vertical}
 .pv-pages{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;gap:10px;padding-block:12px calc(16px + env(safe-area-inset-bottom,0px));padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px))}
 .pv-pages canvas{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);max-width:100%;height:auto}
 .pv-pages p{color:var(--muted);text-align:center;max-width:32ch;margin:30px auto 0}
-.file-pick{position:relative;overflow:hidden;flex:1;text-align:center}
+.file-pick{position:relative;overflow:hidden;text-align:center}
 .file-pick input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--line);border-radius:10px;padding:3px;gap:3px}
 .tabs button{font:600 .9rem var(--body);border:0;border-radius:8px;padding:9px;background:transparent;color:var(--muted);cursor:pointer}
@@ -155,7 +181,15 @@ textarea{resize:vertical}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pills span{font-size:.8rem;padding:4px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
 .linkrow{background:none;border:0;padding:5px 0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
-.panel:focus{outline:none}
+.upc{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.upc h3{margin:0 0 2px;font-size:1rem}
+.uprow{display:grid;grid-template-columns:5.6em minmax(0,1fr);gap:10px;align-items:center;font-size:.86rem;padding:4px 0}
+.uprow .pill{justify-self:start;text-align:center}
+.uprow small{display:block;color:var(--muted);font-size:.78rem}
+.upc .btn{margin-top:4px;align-self:flex-start;padding:8px 12px;font-size:.86rem}
+.legal ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:.88rem}
+.legal li b{font-weight:600}
+.legal a{color:var(--accent)}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 </style>
 </head>
@@ -171,18 +205,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   </div>
   <p id="sampleNote" class="note w" hidden>Ukázková data. Po uložení první vlastní účtenky zmizí.</p>
   <p id="backupNote" class="note w" hidden></p>
-  <div id="loadNote" class="note bad" role="alert" hidden><b>Data se nepodařilo načíst.</b> Nic se nesmazalo ani nepřepsalo. Zkus aplikaci zavřít a otevřít znovu. Když to nepomůže, obnov data ze zálohy.
+  <div id="loadNote" class="note bad" role="alert" hidden><b>Data se nepodařilo načíst.</b> Nic se nesmazalo ani nepřepsalo. Pokud máš aplikaci otevřenou ještě v jiném okně nebo panelu, zavři ho. Pak ji zkus zavřít a otevřít znovu. Když to nepomůže, obnov data ze zálohy.
     <div class="btns" style="margin-top:8px"><button type="button" class="btn" id="reload">Zkusit znovu</button></div></div>
   <div id="listView" style="display:flex;flex-direction:column;gap:16px">
+    <section class="upc" id="upcoming" hidden></section>
     <div class="sum" id="filters"></div>
-    <input id="q" type="search" placeholder="Hledat věc, obchod nebo poznámku…" autocomplete="off">
+    <input id="q" type="search" placeholder="Hledat věc, obchod, kategorii, poznámku…" autocomplete="off">
     <div class="list" id="list"></div>
   </div>
   <div id="overview" hidden></div>
 </div>
 <button class="fab" id="add" type="button">+ Přidat účtenku</button>
 <div class="toast" id="toast" role="status" hidden></div>
+<datalist id="cats"></datalist>
 
+<!-- receipt -->
 <div class="sheet" id="sheet" hidden>
   <form class="panel" id="form" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="ftitle" tabindex="-1">
     <h2 id="ftitle">Nová účtenka</h2>
@@ -192,22 +229,35 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <label>Cena (Kč)<input id="f-price" inputmode="decimal" placeholder="0"></label>
     </div>
     <div class="row">
-      <label>Datum nákupu<input id="f-date" type="date" required></label>
-      <label>Záruka<select id="f-months">
-        <option value="6">6 měsíců</option><option value="12">12 měsíců</option>
-        <option value="24">24 měsíců</option><option value="36">36 měsíců</option>
-        <option value="48">48 měsíců</option><option value="60">60 měsíců</option></select></label>
+      <label>Kategorie<input id="f-cat" list="cats" maxlength="40" placeholder="Elektronika"></label>
+      <label>Druh nákupu<select id="f-kind"><option value="new">Nové zboží</option><option value="used">Použité zboží</option><option value="business">Na firmu (IČO)</option></select></label>
     </div>
+    <div class="row">
+      <label>Datum nákupu<input id="f-date" type="date" required></label>
+      <label>Převzato<input id="f-received" type="date"></label>
+    </div>
+    <p class="small">Převzetí vyplň, jen když věc přišla později než v den nákupu. Záruka běží od převzetí.</p>
+    <label>Záruka<select id="f-months">
+      <option value="6">6 měsíců</option><option value="12">12 měsíců</option>
+      <option value="24">24 měsíců</option><option value="36">36 měsíců</option>
+      <option value="48">48 měsíců</option><option value="60">60 měsíců</option></select></label>
     <p class="note w" id="f-mnote" hidden></p>
     <p class="note i" id="f-presume" hidden></p>
+    <button type="button" class="linkbtn" data-legal>Jak se počítají záruky a lhůty</button>
     <label>Číslo objednávky / dokladu<input id="f-order" maxlength="60" placeholder="Najdeš na účtence nebo v e-mailu"></label>
     <label>Poznámka<textarea id="f-note" rows="2" maxlength="500" placeholder="Sériové číslo, kde je krabice…"></textarea></label>
+    <label class="chk"><input type="checkbox" id="f-returned"><span>Vráceno, peníze zpět<small>Věc se pak nepočítá do záruk ani do výdajů.</small></span></label>
     <h4>Doklady (fotka účtenky, faktura v PDF, záruční list)</h4>
     <div class="thumbs" id="thumbs"></div>
+    <p class="note w" id="f-docnote" hidden></p>
+    <div id="remindBox" hidden>
+      <h4>Připomínky</h4>
+      <div class="btns" style="margin-top:8px"><button type="button" class="btn" id="f-remind">Přidat termíny do Kalendáře</button></div>
+    </div>
     <div id="claimBox" hidden>
       <h4>Reklamace</h4>
       <div class="claims" id="claims"></div>
-      <div class="btns" style="margin-top:8px"><button type="button" class="btn" id="f-claim">Zahájit reklamaci</button></div>
+      <div class="btns" style="margin-top:8px"><button type="button" class="btn" id="f-claim">Nová reklamace</button></div>
     </div>
     <div class="btns">
       <button type="button" class="btn del" id="f-del" hidden>Smazat</button>
@@ -217,48 +267,112 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   </form>
 </div>
 
-<div class="sheet" id="csheet" hidden>
-  <form class="panel" id="cform" role="dialog" aria-modal="true" aria-labelledby="ctitle" tabindex="-1">
+<!-- claim -->
+<div class="sheet sub" id="csheet" hidden>
+  <form class="panel" id="cform" role="dialog" aria-modal="true" aria-labelledby="ctitle" tabindex="-1" autocomplete="off">
     <h2 id="ctitle">Reklamace</h2>
-    <div id="c-new">
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <label>Datum uplatnění reklamace<input id="c-from" type="date" required></label>
-        <label>Co je za vadu<textarea id="c-note" rows="2" maxlength="300" placeholder="Nejde zapnout, číslo reklamace…"></textarea></label>
-        <p>Obchod musí reklamaci vyřídit do 30 dnů od uplatnění, pokud není domluvená delší lhůta. Po dobu reklamace se záruka prodlužuje, aplikace to započítá sama.</p>
-      </div>
+    <p class="note i" id="c-deadline" hidden></p>
+    <div class="row">
+      <label>Uplatněno dne<input id="c-from" type="date" required></label>
+      <label>Číslo reklamace<input id="c-protocol" maxlength="60" placeholder="z protokolu"></label>
     </div>
-    <div id="c-end" hidden>
-      <div style="display:flex;flex-direction:column;gap:12px">
+    <label>Popis vady<textarea id="c-note" rows="2" maxlength="300" placeholder="Nejde zapnout, praská displej…"></textarea></label>
+    <label class="chk"><input type="checkbox" id="c-atseller" checked><span>Věc je u prodejce nebo v servisu<small>Po tuto dobu se záruka prodlužuje. Když máš věc u sebe, nepočítá se.</small></span></label>
+    <div class="row">
+      <label>Odesláno<input id="c-sent" type="date"></label>
+      <label>Přijetí potvrzeno<input id="c-conf" type="date"></label>
+    </div>
+    <label>Dohodnutá delší lhůta do<input id="c-ext" type="date"></label>
+    <h4>Přílohy (protokol, fotky vady, odpověď prodejce)</h4>
+    <div class="thumbs" id="c-thumbs"></div>
+    <h4>Komunikace a historie</h4>
+    <div class="logadd"><input id="c-logd" type="date" aria-label="Datum záznamu"><input id="c-logt" maxlength="500" placeholder="Telefonát, e-mail, odpověď…" aria-label="Záznam"></div>
+    <button type="button" class="btn" id="c-logadd" style="align-self:flex-start">Přidat záznam</button>
+    <div id="c-log"></div>
+    <h4>Vyřízení</h4>
+    <label class="chk"><input type="checkbox" id="c-closed"><span>Reklamace je vyřízená</span></label>
+    <div id="c-endf" hidden style="display:flex;flex-direction:column;gap:12px">
+      <div class="row">
         <label>Vyřízeno dne<input id="c-to" type="date"></label>
         <label>Výsledek<select id="c-res"><option>Opraveno</option><option>Vyměněno</option><option>Vráceny peníze</option><option>Sleva</option><option>Zamítnuto</option></select></label>
       </div>
+      <label id="c-refundw">Vrácená částka nebo sleva (Kč)<input id="c-refund" inputmode="decimal" placeholder="0"></label>
     </div>
+    <button type="button" class="linkbtn" data-legal>Jak se počítají lhůty reklamace</button>
     <div class="btns">
+      <button type="button" class="btn del" id="c-del" hidden>Smazat</button>
       <button type="button" class="btn" id="c-cancel">Zrušit</button>
       <button type="submit" class="btn pri" id="c-save">Uložit</button>
     </div>
   </form>
 </div>
 
+<!-- invoice review -->
+<div class="sheet sub" id="rsheet" hidden>
+  <div class="panel" id="rpanel" role="dialog" aria-modal="true" aria-labelledby="rtitle" tabindex="-1">
+    <h2 id="rtitle">Údaje z dokladu</h2>
+    <p>Zkontroluj, co se v PDF našlo. Převezmu jen to, co vybereš.</p>
+    <div id="r-body" style="display:flex;flex-direction:column;gap:14px"></div>
+    <div class="btns">
+      <button type="button" class="btn" id="r-cancel">Nepřebírat</button>
+      <button type="button" class="btn pri" id="r-apply">Převzít vybrané</button>
+    </div>
+  </div>
+</div>
+
+<!-- calendar reminders -->
+<div class="sheet sub" id="msheet" hidden>
+  <div class="panel" id="mpanel" role="dialog" aria-modal="true" aria-labelledby="mtitle" tabindex="-1">
+    <h2 id="mtitle">Termíny do Kalendáře</h2>
+    <p>Když je aplikace zavřená, sama tě upozornit nemůže. Termíny si proto ulož do Kalendáře, ten tě upozorní spolehlivě.</p>
+    <div id="m-body"></div>
+    <p class="small" style="margin:0">Když se termín změní (třeba po reklamaci), přidej ho znovu a starou událost v Kalendáři smaž.</p>
+    <div class="btns">
+      <button type="button" class="btn" id="m-cancel">Zavřít</button>
+      <button type="button" class="btn pri" id="m-go">Přidat do Kalendáře</button>
+    </div>
+  </div>
+</div>
+
+<!-- backup -->
 <div class="sheet" id="bsheet" hidden>
   <div class="panel" id="bpanel" role="dialog" aria-modal="true" aria-labelledby="btitle" tabindex="-1">
     <h2 id="btitle">Záloha</h2>
-    <p>Data jsou uložená jen v tomto zařízení a nikam se neodesílají. iOS je ale může smazat, třeba při čištění dat webů. Zálohu si proto občas ulož jako soubor do Souborů nebo na iCloud.</p>
-    <p id="b-size"></p>
-    <h4>Soubor JSON</h4>
+    <p>Data jsou uložená jen v tomto zařízení a nikam se neodesílají. iOS je ale může smazat, třeba při čištění dat webů. Zálohu si proto ulož jednou měsíčně do Souborů nebo na iCloud.</p>
+    <p class="note i" id="b-stats"></p>
+    <h4>Uložit</h4>
+    <button class="btn pri" id="b-save" type="button">Uložit zálohu do souboru</button>
+    <div class="note w" id="b-confirm" hidden><span id="b-confirm-t">Je záloha opravdu uložená? Zkontroluj soubor v aplikaci Soubory nebo ve Stažených.</span>
+      <div class="btns" style="margin-top:8px"><button class="btn" id="b-yes" type="button">Ano, je uložená</button><button class="btn" id="b-no" type="button">Ne</button></div></div>
     <div class="btns">
-      <button class="btn pri" id="b-save" type="button">Uložit zálohu do souboru</button>
-      <span class="btn file-pick">Načíst ze souboru<input id="b-file" type="file" accept=".json,application/json,text/plain" aria-label="Načíst zálohu ze souboru"></span>
+      <button class="btn" id="b-csv" type="button">Seznam nákupů do CSV</button>
+      <button class="btn" id="b-copy" type="button">Zkopírovat jako text</button>
     </div>
-    <p id="b-file-info" hidden></p>
-    <button class="btn del" id="b-file-apply" type="button" hidden>Nahradit data zálohou</button>
-    <h4>Přes schránku</h4>
-    <button class="btn" id="b-copy" type="button">Zkopírovat zálohu jako text</button>
-    <label>Obnovit z textu<textarea id="b-text" rows="3" placeholder="Sem vlož zkopírovanou zálohu"></textarea></label>
-    <div class="btns">
-      <button class="btn" id="b-close" type="button">Zavřít</button>
-      <button class="btn pri" id="b-restore" type="button">Obnovit</button>
-    </div>
+    <p class="small" style="margin:0">CSV je tabulka nákupů bez fotek a PDF, otevřeš ji v Excelu nebo Numbers. Obnovit z ní data nejde. Kopírování jako text funguje jen u malých záloh.</p>
+    <h4>Obnovit</h4>
+    <span class="btn file-pick">Načíst zálohu ze souboru<input id="b-file" type="file" accept=".json,application/json,text/plain" aria-label="Načíst zálohu ze souboru"></span>
+    <label>Nebo vlož zkopírovanou zálohu<textarea id="b-text" rows="3" placeholder="Sem vlož zkopírovanou zálohu"></textarea></label>
+    <button class="btn" id="b-check" type="button" style="align-self:flex-start">Zkontrolovat vloženou zálohu</button>
+    <div class="note i" id="b-preview" hidden></div>
+    <button class="btn del" id="b-apply" type="button" hidden>Nahradit data zálohou</button>
+    <div class="btns"><button class="btn" id="b-close" type="button">Zavřít</button></div>
+  </div>
+</div>
+
+<!-- legal info -->
+<div class="sheet sub" id="lsheet" hidden>
+  <div class="panel legal" id="lpanel" role="dialog" aria-modal="true" aria-labelledby="ltitle" tabindex="-1">
+    <h2 id="ltitle">Jak se počítají záruky a lhůty</h2>
+    <ul>
+      <li><b>Zákonná práva z vad (24 měsíců).</b> Při nákupu nového zboží jako spotřebitel můžeš vadu reklamovat 24 měsíců od převzetí věci. U použitého zboží jde tuto dobu dohodou zkrátit, nejvýš na 12 měsíců.</li>
+      <li><b>Obchodní záruka je něco jiného.</b> Delší dobu (třeba 36 nebo 60 měsíců) dává dobrovolně prodejce nebo výrobce za podmínek ze záručního listu. Zákonná práva ti tím zůstávají.</li>
+      <li><b>Domněnka vady (1 rok).</b> Když se vada projeví do roka od převzetí, má se za to, že ji věc měla už při převzetí. Prodejce by musel dokázat opak. Neplatí to, pokud to vylučuje povaha věci nebo vady.</li>
+      <li><b>Vyřízení reklamace (30 dní).</b> Prodejce má reklamaci vyřídit do 30 dnů od uplatnění, pokud se nedohodnete na delší lhůtě. Když ji nestihne, můžeš obvykle odstoupit od smlouvy nebo žádat přiměřenou slevu. Co přesně z toho plyne, záleží na konkrétní situaci.</li>
+      <li><b>Prodloužení během reklamace.</b> Po dobu, kdy oprávněně reklamovanou věc nemůžeš používat, lhůta neběží. Aplikace proto přičítá dny, kdy byla věc u prodejce nebo v servisu. Zamítnuté reklamace nepočítá; pokud zamítnutí rozporuješ, může se doba počítat i tak. Výměna věci lhůtu znovu nespouští.</li>
+      <li><b>Nákup na firmu (na IČO).</b> Spotřebitelská pravidla (domněnka vady, 30denní lhůta) se nepoužijí. Platí smlouva a obchodní podmínky.</li>
+    </ul>
+    <p>Jde o obecné informace podle občanského zákoníku a zákona o ochraně spotřebitele, ne o právní radu. Výpočty v aplikaci jsou orientační. V konkrétním sporu se obrať na <a href="https://www.coi.cz" target="_blank" rel="noopener">Českou obchodní inspekci</a> nebo spotřebitelskou poradnu.</p>
+    <div class="btns"><button type="button" class="btn pri" id="l-close">Rozumím</button></div>
   </div>
 </div>
 
@@ -272,36 +386,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Fotka dokladu" hidden><img id="v-img" alt="Fotka dokladu"><button type="button" id="v-close">Zavřít</button></div>
 
 <script>
-/* ---------- storage: IndexedDB in this browser only, localStorage as fallback ---------- */
-const KEY="zaruky-v1",META="zaruky-meta";
-const Store={
-  db:null,
-  open(){return new Promise((res,rej)=>{try{const r=indexedDB.open("zaruky",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}})},
-  /* localStorage only holds data when the last IndexedDB write failed, so it is the newer copy.
-     A failed read THROWS instead of returning undefined: "nothing saved" and "could not read" must never look the same,
-     otherwise the app would show sample data and the next save would overwrite everything. */
-  async get(k){
-    try{const r=localStorage.getItem(k);if(r)return JSON.parse(r)}catch(e){}
-    if(typeof indexedDB==="undefined")return undefined;
-    let err;
-    for(let a=0;a<3;a++){
-      try{this.db=this.db||await this.open();return await new Promise((res,rej)=>{const q=this.db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
-      catch(e){err=e;this.db=null;if(a<2)await new Promise(r=>setTimeout(r,200*(a+1)))}
-    }
-    throw err||new Error("read failed");
-  },
-  async set(k,v){
-    try{this.db=this.db||await this.open();await new Promise((res,rej)=>{const t=this.db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)});try{localStorage.removeItem(k)}catch(e){}return true}catch(e){this.db=null}
-    try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}
-  }
-};
-let loadFailed=false;
-try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
-
-/* ---------- dates & formatting ---------- */
+/* ======================================================================
+   helpers
+   ====================================================================== */
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const clip=(s,n)=>String(s??"").slice(0,n);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 let today;function setToday(){today=new Date();today.setHours(0,0,0,0)}setToday();
 const P=s=>{const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
-const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const pad2=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 function addMonths(s,m){const d=P(s),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+m);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d}
 const addDays=(s,n)=>{const d=P(s);d.setDate(d.getDate()+n);return d};
 const diffDays=(a,b)=>Math.round((a-b)/864e5);
@@ -311,42 +407,207 @@ const kc=n=>(n===""||n==null||isNaN(n))?"":Number(n).toLocaleString("cs-CZ",{max
 /* accepts 1299 · 1 299 · 1299,90 · 1 299,- · 1.299 · 1.299,90 · 1299 Kč */
 const parsePrice=s=>{let t=String(s).replace(/\s|kč|czk/gi,"").replace(/[,.]-$/,"");if(!t)return "";
   if(/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(t))t=t.replace(/\./g,"");
-  t=t.replace(",",".");if(!/^\d+(\.\d{1,2})?$/.test(t))return null;return parseFloat(t)};
+  t=t.replace(",",".");
+  if(!/^\d+(\.\d{1,2})?$/.test(t))return null;return parseFloat(t)};
 const days=n=>n===1?"den":n>=2&&n<=4?"dny":"dní";
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const $=id=>document.getElementById(id);
+const plural=(n,a,b,c)=>`${n} ${n===1?a:n>=2&&n<=4?b:c}`;
+const kShort=n=>n>=1e6?(n/1e6).toLocaleString("cs-CZ",{maximumFractionDigits:1})+" mil.":n>=1e4?Math.round(n/1e3)+" tis.":n>=1e3?(n/1e3).toLocaleString("cs-CZ",{maximumFractionDigits:1})+" tis.":String(Math.round(n));
+const fmtSize=b=>b>=1048576?(b/1048576).toLocaleString("cs-CZ",{maximumFractionDigits:1})+" MB":Math.max(1,Math.round(b/1024))+" kB";
+const whenTxt=d=>d<-1?`před ${-d} dny`:d===-1?"včera":d===0?"dnes":d===1?"zítra":`za ${d} ${days(d)}`;
 /* a real calendar date (rejects 2024-02-31 etc.) */
 const isDate=s=>typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&iso(P(s))===s;
-const MAX_PHOTOS=4,MAX_PDFS=3,MAX_PDF_MB=8;
 /* strict: these strings end up in src="" and come from backup files that may have been tampered with */
-const isImgData=d=>typeof d==="string"&&/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/.test(d);
+/* any image type older versions may have stored (jpeg, png, heic…); the base64-only body is what keeps quotes out */
+const isImgData=d=>typeof d==="string"&&/^data:image\/[a-z0-9.+-]{2,20};base64,[A-Za-z0-9+/]+=*$/i.test(d);
 const isPdfData=d=>typeof d==="string"&&/^data:application\/pdf;base64,[A-Za-z0-9+/]+=*$/.test(d);
+const MAX_PHOTOS=4,MAX_PDFS=3,MAX_CLAIM_FILES=6,MAX_PDF_MB=8;
+const MAX_IMG_B64=8e6,MAX_PDF_B64=Math.ceil(MAX_PDF_MB*1048576*4/3)+200;
+const MONTHS=[6,12,24,36,48,60],KINDS=["new","used","business"];
+const isStandalone=()=>window.navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
 
-const SAMPLE=[
- {id:"s1",name:"Pračka Bosch Serie 6",shop:"Datart",price:14990,date:ago(400),months:24,note:"",photos:[],claims:[{from:ago(12),to:null,note:"Neždímá"}]},
- {id:"s2",name:"Sluchátka Sony WH-1000XM5",shop:"Alza",price:7990,date:ago(700),months:24,note:"",photos:[],claims:[{from:ago(300),to:ago(281),note:"Nejde levé sluchátko",result:"Vyměněno"}]},
- {id:"s4",name:"Notebook Lenovo",shop:"Alza",price:21990,date:ago(150),months:24,note:"",photos:[],claims:[]},
- {id:"s5",name:"Myčka Electrolux",shop:"Datart",price:11490,date:ago(660),months:24,note:"",photos:[],claims:[]},
- {id:"s3",name:"Zimní bunda",shop:"Sportisimo",price:3499,date:ago(800),months:24,note:"",photos:[],claims:[]},
-];
-let items=[],sample=false,filter="all",editId=null,photos=[],pdfs=[],claims=[],meta={lastBackup:null};
+/* ======================================================================
+   storage
+   IndexedDB "zaruky" v2: store "kv" holds the item list (small, documents are referenced by id),
+   its revision and meta; store "files" holds each photo/PDF as a data URL under its own key.
+   - every save is ONE transaction (new files + list + revision + removal of files nobody uses), so it either
+     fully happens or not at all, even if the phone switches off in the middle
+   - the revision stops a stale window from overwriting newer data saved in another window
+   - localStorage is only an emergency copy of the list when IndexedDB fails; it cannot hold documents
+   ====================================================================== */
+const KEY="zaruky-v1",META="zaruky-meta",REV="zaruky-rev";
+const allFileIds=list=>{const s=new Set();for(const it of list){for(const d of it.docs)s.add(d.id);for(const c of it.claims)for(const f of c.files)s.add(f.id)}return s};
+const Store={
+  db:null,
+  /* an older version open in another window can hold the database and block the upgrade without any event in some
+     browsers, so opening gives up after a while instead of showing "Načítám…" forever */
+  open(){return new Promise((res,rej)=>{try{
+    const r=indexedDB.open("zaruky",2);
+    const to=setTimeout(()=>{const e=new Error("blocked");e.blocked=true;rej(e)},6000);
+    r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv");if(!d.objectStoreNames.contains("files"))d.createObjectStore("files")};
+    r.onsuccess=()=>{clearTimeout(to);const d=r.result;d.onversionchange=()=>{d.close();Store.db=null};res(d)};
+    r.onerror=()=>{clearTimeout(to);rej(r.error)};
+    r.onblocked=()=>{clearTimeout(to);const e=new Error("blocked");e.blocked=true;rej(e)};
+  }catch(e){rej(e)}})},
+  async dbx(){if(!this.db)this.db=await this.open();return this.db},
+  req(q){return new Promise((res,rej)=>{q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})},
+  lsRead(){try{const r=localStorage.getItem(KEY);if(!r)return null;const v=JSON.parse(r);
+    if(Array.isArray(v))return{items:v,rev:null};if(v&&Array.isArray(v.items))return{items:v.items,rev:+v.rev||0}}catch(e){}return null},
+  /* returns {items,rev}; THROWS when IndexedDB cannot be read, so "nothing saved" and "could not read" never look the same */
+  async load(){
+    const ls=this.lsRead();
+    if(typeof indexedDB==="undefined")return{items:ls?ls.items:undefined,rev:ls?ls.rev||0:0};
+    let err;
+    for(let a=0;a<3;a++){
+      try{
+        const s=(await this.dbx()).transaction("kv").objectStore("kv");
+        const[items,r]=await Promise.all([this.req(s.get(KEY)),this.req(s.get(REV))]);const rev=+r||0;
+        /* the emergency copy wins only when it is newer. A legacy copy without revision counts only before the
+           move to the new format (rev 0); after it, it can only come from an outdated window and is ignored. */
+        if(ls&&((ls.rev===null&&!rev)||(ls.rev!==null&&ls.rev>rev)))return{items:ls.items,rev:Math.max(rev,ls.rev||0)};
+        return{items,rev};
+      }catch(e){err=e;this.db=null;if(e&&e.blocked)break;if(a<2)await sleep(200*(a+1))}
+    }
+    /* when blocked, the emergency copy may be stale: better to show the warning than old data */
+    if(ls&&!(err&&err.blocked))return{items:ls.items,rev:ls.rev||0};
+    throw err||new Error("read failed");
+  },
+  async peekRev(){const s=(await this.dbx()).transaction("kv").objectStore("kv");return +(await this.req(s.get(REV)))||0},
+  /* extra: [[key,value]] written into "kv" in the same transaction (used for the safety copy during migration) */
+  async save(items,files,baseRev,force,extra){
+    const refs=allFileIds(items);
+    try{
+      const db=await this.dbx();
+      const out=await new Promise((res,rej)=>{
+        const t=db.transaction(["kv","files"],"readwrite"),kv=t.objectStore("kv"),fs=t.objectStore("files");
+        let result=null;
+        const g=kv.get(REV);
+        g.onsuccess=()=>{
+          const cur=+g.result||0;
+          if(!force&&cur>baseRev){result="conflict";t.abort();return}
+          for(const[id,data]of files)if(refs.has(id))fs.put(data,id);
+          const next=Math.max(cur,baseRev||0)+1;
+          kv.put(items,KEY);kv.put(next,REV);result=next;
+          if(extra)for(const[k,v]of extra)kv.put(v,k);
+          const k=fs.getAllKeys();k.onsuccess=()=>{for(const id of k.result)if(!refs.has(id))fs.delete(id)};
+        };
+        t.oncomplete=()=>res(result);
+        t.onabort=()=>result==="conflict"?res("conflict"):rej(t.error||new Error("abort"));
+      });
+      if(out==="conflict")return{ok:false,conflict:true};
+      try{localStorage.removeItem(KEY)}catch(e){}
+      return{ok:true,rev:out};
+    }catch(e){this.db=null}
+    /* emergency copy only for changes that do not add documents */
+    if([...files.keys()].some(id=>refs.has(id)))return{ok:false,files:true};
+    try{const rev=(baseRev||0)+1;localStorage.setItem(KEY,JSON.stringify({rev,items}));return{ok:true,rev}}catch(e){return{ok:false}}
+  },
+  async getFile(id){const s=(await this.dbx()).transaction("files").objectStore("files");return this.req(s.get(id))},
+  async kvGet(k){try{const s=(await this.dbx()).transaction("kv").objectStore("kv");const v=await this.req(s.get(k));if(v!==undefined)return v}catch(e){}
+    try{const r=localStorage.getItem(k);if(r)return JSON.parse(r)}catch(e){}return undefined},
+  async kvSet(k,v){try{const db=await this.dbx();await new Promise((res,rej)=>{const t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=res;t.onerror=t.onabort=()=>rej(t.error)});return true}catch(e){this.db=null}
+    try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
+};
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist().catch(()=>{})}catch(e){}
 
-/* older saves had a single `photo` and no claims */
-function normalize(x){
-  const ph=Array.isArray(x.photos)?x.photos.filter(isImgData):(isImgData(x.photo)?[x.photo]:[]);
-  const cl=Array.isArray(x.claims)?x.claims.filter(c=>c&&isDate(c.from)).map(c=>({from:c.from,to:isDate(c.to)&&c.to>=c.from?c.to:null,note:String(c.note||"").slice(0,300),result:c.result?String(c.result).slice(0,40):""})):[];
-  const pr=x.price===""||x.price==null||isNaN(+x.price)||+x.price<0?"":+x.price;
-  return{id:String(x.id||"u"+Math.random().toString(36).slice(2)),name:String(x.name||"").slice(0,120),shop:String(x.shop||""),price:pr,date:x.date,
-    months:[6,12,24,36,48,60].includes(+x.months)?+x.months:24,order:String(x.order||""),note:String(x.note||""),photos:ph.slice(0,MAX_PHOTOS),
-    pdfs:(Array.isArray(x.pdfs)?x.pdfs:[]).filter(f=>f&&isPdfData(f.data)).slice(0,MAX_PDFS).map(f=>({name:String(f.name||"faktura.pdf").slice(0,120),size:+f.size||0,data:f.data})),claims:cl};
+/* ======================================================================
+   state
+   ====================================================================== */
+let items=[],rev=0,sample=false,loadFailed=false,filter="all",view="list",selMonth=0,meta={lastBackup:null},pendingReload=false;
+const pendingFiles=new Map();   /* id -> data URL, not saved yet */
+const fileCache=new Map();      /* id -> data URL, loaded from storage while a sheet is open */
+try{if(localStorage.getItem("zaruky-view")==="over")view="over"}catch(e){}
+const findItem=id=>items.find(i=>i.id===id);
+async function getData(id,noCache){
+  if(pendingFiles.has(id))return pendingFiles.get(id);
+  if(fileCache.has(id))return fileCache.get(id);
+  let v=null;try{v=await Store.getFile(id)}catch(e){}
+  if(typeof v!=="string")return null;
+  if(!noCache)fileCache.set(id,v);
+  return v;
 }
-const openClaim=it=>it.claims.find(c=>!c.to);
 
-/* § 2165(4) OZ: the period does not run while the item is in a claim (from filing until it is settled; an open claim counts until today).
-   Overlapping claims are counted once; a claim filed after the warranty had already ended adds nothing. Replacement does not restart the period. */
+/* ======================================================================
+   data model + validation (also used for backups)
+   item: {id,name,shop,price,cat,kind,date,received,months,order,note,returned,docs[],claims[]}
+   doc/file: {id,kind:"img"|"pdf",name,size}   claim: {id,from,to,result,note,protocol,sent,confirmed,extendedTo,atSeller,refund,log[],files[]}
+   ====================================================================== */
+const numOrEmpty=v=>v===""||v==null||isNaN(+v)||+v<0?"":+v;
+const optDate=v=>isDate(v)?v:"";
+/* a document either carries its data (old saves, backups) or references a stored file (current saves).
+   Size limits apply only to backups: documents already saved in this device are never thrown away for being big. */
+function normDoc(d,files,fromBackup,st){
+  if(d==null)return null;
+  const bad=()=>{st.badFiles++;return null};
+  if(typeof d==="string"){if(!isImgData(d)||(fromBackup&&d.length>MAX_IMG_B64))return bad();const id=newId("f");files.set(id,d);return{id,kind:"img",name:"",size:Math.round(d.length*.75)}}
+  if(typeof d!=="object")return bad();
+  const kind=d.kind==="pdf"||(typeof d.data==="string"&&d.data.startsWith("data:application/pdf"))?"pdf":"img";
+  const name=clip(d.name,120);
+  if(typeof d.data==="string"){
+    if(!(kind==="pdf"?isPdfData(d.data):isImgData(d.data))||(fromBackup&&d.data.length>(kind==="pdf"?MAX_PDF_B64:MAX_IMG_B64)))return bad();
+    const id=newId("f");files.set(id,d.data);return{id,kind,name,size:+d.size>0?+d.size:Math.round(d.data.length*.75)};
+  }
+  if(fromBackup||typeof d.id!=="string"||!/^f[a-z0-9]{4,30}$/.test(d.id))return bad();
+  return{id:d.id,kind,name,size:+d.size>0?+d.size:0};
+}
+function normClaim(c,files,fromBackup,st){
+  if(!c||!isDate(c.from))return null;
+  const to=isDate(c.to)&&c.to>=c.from?c.to:null;
+  return{id:typeof c.id==="string"&&/^c[a-z0-9]{1,30}$/.test(c.id)?c.id:newId("c"),from:c.from,to,result:to?clip(c.result,40):"",
+    note:clip(c.note,300),protocol:clip(c.protocol,60),sent:optDate(c.sent),confirmed:optDate(c.confirmed),extendedTo:optDate(c.extendedTo),
+    atSeller:c.atSeller!==false,refund:numOrEmpty(c.refund),
+    log:(Array.isArray(c.log)?c.log:[]).filter(l=>l&&isDate(l.d)&&l.t).slice(0,300).map(l=>({d:l.d,t:clip(l.t,500),k:l.k==="s"?"s":"n"})),
+    files:(Array.isArray(c.files)?c.files:[]).map(f=>normDoc(f,files,fromBackup,st)).filter(Boolean).slice(0,MAX_CLAIM_FILES)};
+}
+function normalize(x,files,fromBackup,st){
+  let docs;
+  if(Array.isArray(x.docs))docs=x.docs.map(d=>normDoc(d,files,fromBackup,st));
+  else{ /* older saves: photos[] of data URLs (or a single photo) + pdfs[] with inline data */
+    const ph=Array.isArray(x.photos)?x.photos:(x.photo!=null?[x.photo]:[]);
+    docs=[...ph.map(p=>normDoc(p,files,fromBackup,st)),...(Array.isArray(x.pdfs)?x.pdfs:[]).map(f=>normDoc(f&&typeof f==="object"?{...f,kind:"pdf"}:f,files,fromBackup,st))];
+  }
+  docs=docs.filter(Boolean);
+  const imgs=docs.filter(d=>d.kind==="img").slice(0,MAX_PHOTOS),pdfs=docs.filter(d=>d.kind==="pdf").slice(0,MAX_PDFS);
+  const received=isDate(x.received)&&x.received>x.date?x.received:"";
+  /* ids end up in HTML attributes and calendar UIDs, so only plain characters are kept */
+  return{id:typeof x.id==="string"&&/^[A-Za-z0-9_-]{1,40}$/.test(x.id)?x.id:newId("u"),name:clip(String(x.name??"").trim(),120)||"Bez názvu",shop:clip(x.shop,60),price:numOrEmpty(x.price),
+    cat:clip(x.cat,40),kind:KINDS.includes(x.kind)?x.kind:"new",date:x.date,received,
+    months:MONTHS.includes(+x.months)?+x.months:24,order:clip(x.order,60),note:clip(x.note,500),returned:x.returned===true,
+    docs:[...imgs,...pdfs],claims:(Array.isArray(x.claims)?x.claims:[]).map(c=>normClaim(c,files,fromBackup,st)).filter(Boolean)};
+}
+/* validates a whole list: broken items are skipped, duplicate ids renumbered, inline documents collected into `files`.
+   Data already in this device only needs a valid date (a missing name becomes "Bez názvu"); backups must have both. */
+function normalizeAll(arr,fromBackup){
+  const files=new Map(),st={bad:0,badFiles:0,dup:0},seen=new Set(),out=[];
+  for(const x of arr){
+    if(!x||typeof x!=="object"||!isDate(x.date)||(fromBackup&&(typeof x.name!=="string"||!x.name.trim()))){st.bad++;continue}
+    const it=normalize(x,files,fromBackup,st);
+    if(seen.has(it.id)){it.id=newId("u");st.dup++}
+    seen.add(it.id);out.push(it);
+  }
+  return{items:out,files,stats:st};
+}
+const SAMPLE=[
+ {id:"s1",name:"Pračka Bosch Serie 6",shop:"Datart",cat:"Domácí spotřebiče",price:14990,date:ago(400),months:24,claims:[{id:"cs1",from:ago(12),to:null,note:"Neždímá",protocol:"R-20931",sent:ago(12)}]},
+ {id:"s2",name:"Sluchátka Sony WH-1000XM5",shop:"Alza",cat:"Elektronika",price:7990,date:ago(700),months:24,claims:[{id:"cs2",from:ago(300),to:ago(281),note:"Nejde levé sluchátko",result:"Vyměněno"}]},
+ {id:"s4",name:"Notebook Lenovo",shop:"Alza",cat:"Elektronika",price:21990,date:ago(150),months:24,claims:[]},
+ {id:"s5",name:"Myčka Electrolux",shop:"Datart",cat:"Domácí spotřebiče",price:11490,date:ago(660),months:24,claims:[]},
+ {id:"s3",name:"Zimní bunda",shop:"Sportisimo",cat:"Oblečení",price:3499,date:ago(800),months:24,claims:[]},
+];
+
+/* ======================================================================
+   warranty + claim rules
+   ====================================================================== */
+const warrantyStart=it=>it.received||it.date;
+const openClaim=it=>it.claims.find(c=>!c.to);
+const refundSum=it=>it.claims.reduce((s,c)=>s+(+c.refund||0),0);
+/* what the purchase really cost: nothing when returned, minus refunds and discounts from claims */
+const cost=it=>it.returned?0:Math.max(0,(+it.price||0)-refundSum(it));
+/* § 2165(4) OZ: the period does not run while a justly claimed item cannot be used. Counted: claims where the item was
+   with the seller, not rejected; an open claim counts until today. Overlaps are counted once; a claim filed after the
+   (already extended) end adds nothing. Replacement does not restart the period. */
 function warrantyEnd(it){
-  let end=addMonths(it.date,it.months),ext=0,covered=null;
-  const cs=it.claims.map(c=>[P(c.from),c.to?P(c.to):new Date(today)]).sort((a,b)=>a[0]-b[0]);
+  let end=addMonths(warrantyStart(it),it.months),ext=0,covered=null;
+  const cs=it.claims.filter(c=>c.atSeller&&c.result!=="Zamítnuto").map(c=>[P(c.from),c.to?P(c.to):new Date(today)]).sort((a,b)=>a[0]-b[0]);
   for(let[f,t]of cs){
     if(f>end)break;
     if(covered&&f<covered)f=covered;
@@ -356,59 +617,136 @@ function warrantyEnd(it){
   }
   return{end,ext};
 }
+/* statutory 30 days for consumers; an agreed longer period wins; business purchases only have what was agreed */
+function claimDeadline(it,c){if(c.extendedTo)return P(c.extendedTo);if(it.kind==="business")return null;return addDays(c.from,30)}
+function claimStatus(it,c){
+  const dl=claimDeadline(it,c);
+  if(!dl)return{dl:null,dd:null,cls:"info",txt:"Reklamace probíhá (u nákupu na firmu platí lhůta podle dohody)"};
+  const dd=diffDays(dl,today);
+  return{dl,dd,cls:dd<0?"bad":dd<=7?"warn":"info",
+    txt:dd<0?`Reklamace: lhůta pro vyřízení uplynula ${fmtD(dl)}. Obecně pak lze odstoupit od smlouvy nebo žádat slevu, záleží na okolnostech.`
+      :dd===0?"Reklamace: lhůta pro vyřízení končí dnes":`Reklamace: vyřídit do ${fmtD(dl)} (zbývá ${dd} ${days(dd)})`};
+}
 function info(it){
-  const{end,ext}=warrantyEnd(it),start=P(it.date);
+  const{end,ext}=warrantyEnd(it),start=P(warrantyStart(it));
   const left=diffDays(end,today),total=Math.max(1,diffDays(end,start));
   const pct=Math.max(0,Math.min(100,(1-left/total)*100));
+  const oc=openClaim(it),claim=oc?claimStatus(it,oc):null;
+  if(it.returned)return{end,ext,left,pct,cls:"info",txt:"Vráceno",returned:true,claim};
   const cls=left<0?"bad":left<=60?"warn":"ok";
   let txt;
   if(left<0)txt="Po záruce";
   else if(left===0)txt="Končí dnes";
   else if(left<=60)txt=`Zbývá ${left} ${days(left)}`;
-  else{const m=Math.floor(left/30.44);txt=`Ještě ${m} měs.`}
-  const oc=openClaim(it);let claim=null;
-  if(oc){const dl=addDays(oc.from,30),dd=diffDays(dl,today);
-    claim={cls:dd<0?"bad":dd<=7?"warn":"info",txt:dd<0?`Reklamace: obchod nestihl lhůtu (do ${fmtD(dl)}), máš nárok odstoupit nebo žádat slevu`:dd===0?"Reklamace: obchod musí vyřídit dnes":`Reklamace: obchod musí vyřídit do ${fmtD(dl)} (${dd} ${days(dd)})`}}
-  return{end,ext,left,pct,cls,txt,claim};
+  else txt=`Ještě ${Math.floor(left/30.44)} měs.`;
+  return{end,ext,left,pct,cls,txt,returned:false,claim};
 }
+/* deadlines worth showing now: warranty ends within 90 days, claim deadlines within 10 days or overdue */
+function upcoming(){
+  const out=[];
+  for(const it of items){
+    const x=info(it);
+    if(!it.returned&&x.left>=0&&x.left<=90)out.push({it,date:x.end,dd:x.left,txt:"Konec záruky"});
+    const oc=openClaim(it);
+    if(oc){const s=claimStatus(it,oc);if(s.dl&&s.dd<=10)out.push({it,date:s.dl,dd:s.dd,txt:s.dd<0?"Lhůta reklamace uplynula":"Lhůta pro vyřízení reklamace"})}
+  }
+  return out.sort((a,b)=>a.dd-b.dd);
+}
+
+/* ======================================================================
+   saving
+   ====================================================================== */
+const bc=(()=>{try{return new BroadcastChannel("zaruky")}catch(e){return null}})();
+if(bc)bc.onmessage=e=>{if(e.data&&e.data.rev>rev){if(anySheetOpen())pendingReload=true;else reloadFromStore()}};
+/* force: only an explicit restore from backup may write while loading failed, or over newer data */
+async function persist(force,extra){
+  if(loadFailed&&!force){toast("Data se nenačetla, proto teď nic neukládám. Zavři aplikaci a otevři ji znovu.");return"blocked"}
+  if(sample)return"ok";
+  const r=await Store.save(items,pendingFiles,rev,force,extra);
+  if(r.ok){
+    rev=r.rev;
+    for(const id of allFileIds(items))if(pendingFiles.has(id)){fileCache.set(id,pendingFiles.get(id));pendingFiles.delete(id)}
+    try{bc&&bc.postMessage({rev})}catch(e){}
+    return"ok";
+  }
+  if(r.conflict){await reloadFromStore();toast("Data se mezitím změnila v jiném okně. Načetl jsem je znovu, zkus to prosím ještě jednou.");return"conflict"}
+  toast(r.files?"Doklady se nepodařilo uložit. V zařízení asi dochází místo.":"Uložení se nepovedlo. Zkus to znovu.");
+  return"fail";
+}
+/* apply a new list and save it; on failure the previous list comes back (after a conflict the newer stored data stays) */
+async function commit(next,force){
+  const prev=items;items=next;
+  const r=await persist(force);
+  if(r==="ok")return true;
+  if(r!=="conflict")items=prev;
+  render();return false;
+}
+async function reloadFromStore(){
+  try{const res=await Store.load();
+    if(Array.isArray(res.items)){const r=normalizeAll(res.items,false);items=r.items;rev=res.rev;sample=false;for(const[k,v]of r.files)pendingFiles.set(k,v)}}catch(e){}
+  render();
+}
+function pruneFiles(){
+  const keep=allFileIds(items);for(const d of fDocs)keep.add(d.id);if(cw)for(const f of cw.files)keep.add(f.id);
+  for(const id of[...pendingFiles.keys()])if(!keep.has(id))pendingFiles.delete(id);
+}
+
+/* ======================================================================
+   list
+   ====================================================================== */
 function render(){
   const q=$("q").value.trim().toLowerCase();
-  const all=items.map(it=>({it,...info(it)})).sort((a,b)=>(!!b.claim-!!a.claim)||(a.end-b.end)||a.it.name.localeCompare(b.it.name,"cs"));
-  const n={all:all.length,warn:0,ok:0,bad:0,claim:0};all.forEach(x=>{n[x.cls]++;if(x.claim)n.claim++});
-  const active=all.filter(x=>x.left>=0);
-  const sum=active.reduce((s,x)=>s+(+x.it.price||0),0);
-  $("sub").textContent=!all.length?"Zatím nic nehlídáš":`${active.length} v záruce${sum?` · ${kc(sum)}`:""}${n.claim?` · ${n.claim} v reklamaci`:""}`;
+  const all=items.map(it=>({it,...info(it)})).sort((a,b)=>(!!b.claim-!!a.claim)||(a.returned-b.returned)||(a.end-b.end)||a.it.name.localeCompare(b.it.name,"cs"));
+  const n={all:all.length,warn:0,ok:0,bad:0,claim:0,ret:0};all.forEach(x=>{if(x.returned)n.ret++;else n[x.cls]++;if(x.claim)n.claim++});
+  const active=all.filter(x=>!x.returned&&x.left>=0);
+  const sum=active.reduce((s,x)=>s+cost(x.it),0);
+  $("sub").textContent=loadFailed?"Data se nenačetla":!all.length?"Zatím nic nehlídáš":`${active.length} v záruce${sum?` · ${kc(sum)}`:""}${n.claim?` · ${n.claim} v reklamaci`:""}`;
   const F=[["all","Vše"],["warn","Končí do 60 dní"],["ok","V záruce"],["bad","Po záruce"]];
   if(n.claim)F.splice(1,0,["claim","V reklamaci"]);
-  if(filter==="claim"&&!n.claim)filter="all";
+  if(n.ret)F.push(["ret","Vráceno"]);
+  if((filter==="claim"&&!n.claim)||(filter==="ret"&&!n.ret))filter="all";
   $("filters").innerHTML=F.map(([k,l])=>`<button type="button" class="chip" data-f="${k}" aria-pressed="${filter===k}">${l} ${n[k]}</button>`).join("");
   $("sampleNote").hidden=!(sample&&items.length);
   $("loadNote").hidden=!loadFailed;
-  if(loadFailed)$("sub").textContent="Data se nenačetla";
   renderBackupNote();
   $("t-list").setAttribute("aria-selected",view==="list");$("t-over").setAttribute("aria-selected",view==="over");
   $("listView").hidden=view!=="list";$("overview").hidden=view!=="over";
+  renderUpcoming();
   if(view==="over"){renderOverview();return}
-  const list=all.filter(x=>(filter==="all"||(filter==="claim"?!!x.claim:x.cls===filter))&&(!q||[x.it.name,x.it.shop,x.it.note,x.it.order].join(" ").toLowerCase().includes(q)));
+  const match=x=>filter==="all"||(filter==="claim"?!!x.claim:filter==="ret"?x.returned:!x.returned&&x.cls===filter);
+  const hay=it=>[it.name,it.shop,it.note,it.order,it.cat,...it.claims.map(c=>c.protocol+" "+c.note)].join(" ").toLowerCase();
+  const list=all.filter(x=>match(x)&&(!q||hay(x.it).includes(q)));
   if(!list.length){$("list").innerHTML=loadFailed?"":`<div class="empty">${items.length?"Nic neodpovídá.":"Zatím žádné účtenky. Přidej první tlačítkem dole."}</div>`;return}
-  $("list").innerHTML=list.map(x=>`<div class="item" role="button" tabindex="0" data-id="${esc(x.it.id)}">
-    <span class="name">${esc(x.it.name)}</span><span class="pill ${x.cls}">${x.txt}</span>
-    <span class="meta"><span>${esc(x.it.shop||"—")}</span>${x.it.price!==""?`<span>${kc(x.it.price)}</span>`:""}<span>do ${fmtD(x.end)}${x.ext?` (+${x.ext} ${days(x.ext)} za reklamace)`:""}</span>${x.it.photos.length?`<span>${x.it.photos.length} ${x.it.photos.length===1?"fotka":x.it.photos.length<5?"fotky":"fotek"}</span>`:""}${x.it.pdfs.length?`<span>${x.it.pdfs.length} PDF</span>`:""}</span>
+  $("list").innerHTML=list.map(x=>{
+    const it=x.it,ni=it.docs.filter(d=>d.kind==="img").length,np=it.docs.length-ni,rf=refundSum(it);
+    const price=it.price===""?"":`<span>${kc(it.price)}${!x.returned&&rf?` (vráceno ${kc(rf)})`:""}</span>`;
+    return `<div class="item${x.returned?" ret":""}" role="button" tabindex="0" data-id="${esc(it.id)}">
+    <span class="name">${esc(it.name)}</span><span class="pill ${x.cls}">${x.txt}</span>
+    <span class="meta"><span>${esc(it.shop||"—")}</span>${it.cat?`<span>${esc(it.cat)}</span>`:""}${price}${x.returned?"":`<span>do ${fmtD(x.end)}${x.ext?` (+${x.ext} ${days(x.ext)} za reklamace)`:""}</span>`}${ni?`<span>${plural(ni,"fotka","fotky","fotek")}</span>`:""}${np?`<span>${np} PDF</span>`:""}</span>
     ${x.claim?`<span class="claimline ${x.claim.cls}">${x.claim.txt}</span>`:""}
-    <span class="bar ${x.cls}"><i style="width:${x.pct.toFixed(1)}%"></i></span></div>`).join("");
+    ${x.returned?"":`<span class="bar ${x.cls}"><i style="width:${x.pct.toFixed(1)}%"></i></span>`}</div>`}).join("");
 }
-/* ---------- overview ---------- */
-let view="list",selMonth=0;
-try{if(localStorage.getItem("zaruky-view")==="over")view="over"}catch(e){}
-const kShort=n=>n>=1e6?(n/1e6).toLocaleString("cs-CZ",{maximumFractionDigits:1})+" mil.":n>=1e4?Math.round(n/1e3)+" tis.":n>=1e3?(n/1e3).toLocaleString("cs-CZ",{maximumFractionDigits:1})+" tis.":String(Math.round(n));
-const plural=(n,a,b,c)=>`${n} ${n===1?a:n>=2&&n<=4?b:c}`;
+function renderUpcoming(){
+  const el=$("upcoming"),u=loadFailed?[]:upcoming();
+  /* home-screen badge where supported (Android, desktop; iOS only with notification permission) */
+  try{if(!sample&&navigator.setAppBadge){const k=u.filter(x=>x.dd<=7).length;(k?navigator.setAppBadge(k):navigator.clearAppBadge()).catch(()=>{})}}catch(e){}
+  if(!u.length){el.hidden=true;el.innerHTML="";return}
+  el.hidden=false;
+  el.innerHTML=`<h3>Blíží se</h3>${u.slice(0,6).map(x=>`<button type="button" class="linkrow uprow" data-open="${esc(x.it.id)}"><span class="pill ${x.dd<0?"bad":x.dd<=7?"warn":"info"}">${whenTxt(x.dd)}</span><span><b>${esc(x.it.name)}</b><small>${x.txt} ${fmtD(x.date)}</small></span></button>`).join("")}${u.length>6?`<p class="muted">a ${u.length-6} další</p>`:""}${sample?"":`<button type="button" class="btn" id="up-cal">Termíny do Kalendáře</button>`}`;
+}
+
+/* ======================================================================
+   overview
+   ====================================================================== */
 function renderOverview(){
   const el=$("overview");
   if(!items.length){el.innerHTML=`<div class="empty">Přehled se ukáže, jakmile přidáš první účtenku.</div>`;return}
   const all=items.map(it=>({it,...info(it)}));
-  const act=all.filter(x=>x.left>=0);
-  const covered=act.reduce((s,x)=>s+(+x.it.price||0),0);
-  const soon=all.filter(x=>x.cls==="warn");
+  const live=all.filter(x=>!x.returned),act=live.filter(x=>x.left>=0),past=live.filter(x=>x.left<0);
+  const sumC=a=>a.reduce((s,x)=>s+cost(x.it),0);
+  const vIn=sumC(act),vOut=sumC(past),vAll=sumC(all);
+  const back=items.reduce((s,i)=>s+(i.returned?(+i.price||0):refundSum(i)),0);
+  const soon=act.filter(x=>x.cls==="warn");
   const yr=today.getFullYear();
 
   /* warranties ending in the next 12 months */
@@ -421,44 +759,48 @@ function renderOverview(){
     return `<button type="button" class="col" data-m="${i}" aria-pressed="${selMonth===i}" aria-label="${d.toLocaleDateString("cs-CZ",{month:"long",year:"numeric"})}: ${a.length}"><span class="v">${a.length||""}</span><span class="b${a.length?(w?" w":""):" zero"}" style="height:${a.length?Math.max(8,a.length/maxM*100):3}%"></span></button>`}).join("");
   const xlM=months.map(d=>`<span>${d.toLocaleDateString("cs-CZ",{month:"short"})}</span>`).join("");
   const sel=byM[selMonth]||[];
-  const mlist=sel.length?sel.map(x=>`<button type="button" class="linkrow mrow" data-open="${esc(x.it.id)}"><span class="d">${x.end.toLocaleDateString("cs-CZ",{day:"numeric",month:"numeric"})}</span><span class="n">${esc(x.it.name)}</span><span class="c">${x.it.price!==""?kc(x.it.price):""}</span></button>`).join(""):`<p class="muted">V tomhle měsíci žádná záruka nekončí.</p>`;
+  const mlist=sel.length?sel.map(x=>`<button type="button" class="linkrow mrow" data-open="${esc(x.it.id)}"><span class="d">${x.end.toLocaleDateString("cs-CZ",{day:"numeric",month:"numeric"})}</span><span class="n">${esc(x.it.name)}</span><span class="c">${cost(x.it)?kc(cost(x.it)):""}</span></button>`).join(""):`<p class="muted">V tomhle měsíci žádná záruka nekončí.</p>`;
 
   /* covered value over the next 24 months */
-  const pts=[...Array(25)].map((_,m)=>{const t=addMonths(iso(today),m);return act.filter(x=>x.end>=t).reduce((s,x)=>s+(+x.it.price||0),0)});
+  const pts=[...Array(25)].map((_,m)=>{const t=addMonths(iso(today),m);return act.filter(x=>x.end>=t).reduce((s,x)=>s+cost(x.it),0)});
   const W=320,Hh=110,pad=4,maxV=Math.max(1,pts[0]);
   const X=m=>pad+m/24*(W-2*pad),Y=v=>Hh-pad-v/maxV*(Hh-2*pad-14);
   let dPath=`M${X(0)},${Y(pts[0])}`;for(let m=1;m<=24;m++)dPath+=` H${X(m)} V${Y(pts[m])}`;
   const area=dPath+` V${Hh-pad} H${X(0)} Z`;
   const half=pts[12];
 
-  /* purchases by year */
-  const years=[...new Set(items.filter(i=>i.price!=="").map(i=>P(i.date).getFullYear()))].sort();
+  /* spending by year */
+  const years=[...new Set(items.filter(i=>cost(i)).map(i=>P(i.date).getFullYear()))].sort();
   const ys=years.slice(-5);
-  const sumY=ys.map(y=>items.filter(i=>i.price!==""&&P(i.date).getFullYear()===y).reduce((s,i)=>s+i.price,0));
+  const sumY=ys.map(y=>items.filter(i=>P(i.date).getFullYear()===y).reduce((s,i)=>s+cost(i),0));
   const maxY=Math.max(1,...sumY);
 
-  /* shops */
-  const shops={};items.forEach(i=>{const k=i.shop||"Bez obchodu";shops[k]=shops[k]||{v:0,n:0};shops[k].v+=+i.price||0;shops[k].n++});
-  const shopArr=Object.entries(shops).sort((a,b)=>b[1].v-a[1].v||b[1].n-a[1].n).slice(0,6);
-  const maxS=Math.max(1,...shopArr.map(x=>x[1].v));
+  /* by category / shop */
+  const group=keyOf=>{const g={};items.forEach(i=>{const k=keyOf(i);g[k]=g[k]||{v:0,n:0};g[k].v+=cost(i);g[k].n++});return Object.entries(g).sort((a,b)=>b[1].v-a[1].v||b[1].n-a[1].n).slice(0,6)};
+  const bars=arr=>{const mx=Math.max(1,...arr.map(x=>x[1].v));return arr.map(([k,o])=>`<div class="hb"><span>${esc(k)}</span><span class="t"><i style="width:${o.v?Math.max(3,o.v/mx*100):0}%"></i></span><span class="k">${o.v?kc(o.v):plural(o.n,"kus","kusy","kusů")}</span></div>`).join("")};
+  const cats=group(i=>i.cat||"Bez kategorie"),shopArr=group(i=>i.shop||"Bez obchodu");
 
   /* claims */
-  const cl=items.flatMap(i=>i.claims.map(c=>({...c,it:i})));
-  const open=cl.filter(c=>!c.to).length,done=cl.filter(c=>c.to);
+  const cl=items.flatMap(i=>i.claims.map(c=>({c,it:i}))).sort((a,b)=>b.c.from.localeCompare(a.c.from));
+  const open=cl.filter(x=>!x.c.to).length,done=cl.filter(x=>x.c.to).map(x=>x.c);
   const avg=done.length?Math.round(done.reduce((s,c)=>s+diffDays(P(c.to),P(c.from)),0)/done.length):null;
   const inTime=done.filter(c=>diffDays(P(c.to),P(c.from))<=30).length;
   const res={};done.forEach(c=>{const r=c.result||"Vyřízeno";res[r]=(res[r]||0)+1});
   const okRes=done.filter(c=>c.result&&c.result!=="Zamítnuto").length;
+  const hist=cl.slice(0,10).map(({c,it})=>`<button type="button" class="linkrow mrow" data-open="${esc(it.id)}"><span class="d">${fmtD(c.from)}</span><span class="n">${esc(it.name)}${c.protocol?` · č. ${esc(c.protocol)}`:""}</span><span class="c">${c.to?esc(c.result||"vyřízeno")+(c.refund!==""?` · ${kc(c.refund)}`:""):"probíhá"}</span></button>`).join("");
 
-  /* receipts */
-  const noPhoto=act.filter(x=>!x.it.photos.length&&!x.it.pdfs.length).sort((a,b)=>(+b.it.price||0)-(+a.it.price||0));
-  const withPhoto=items.filter(i=>i.photos.length||i.pdfs.length).length;
+  /* documents */
+  const noDoc=act.filter(x=>!x.it.docs.length).sort((a,b)=>cost(b.it)-cost(a.it));
+  const withDoc=items.filter(i=>i.docs.length).length;
 
   el.innerHTML=`
   <div class="tiles">
     <div class="tile okk"><b>${act.length}</b><span>v záruce</span></div>
-    <div class="tile"><b>${covered?kShort(covered):"0"}</b><span>Kč krytých zárukou</span></div>
     <div class="tile ${soon.length?"warn":""}"><b>${soon.length}</b><span>končí do 60 dní</span></div>
+    <div class="tile"><b>${kShort(vAll)}</b><span>Kč celkem utraceno</span></div>
+    <div class="tile"><b>${kShort(vIn)}</b><span>Kč v záruce</span></div>
+    <div class="tile"><b>${kShort(vOut)}</b><span>Kč po záruce</span></div>
+    <div class="tile"><b>${kShort(back)}</b><span>Kč vráceno</span></div>
   </div>
 
   <section class="card">
@@ -484,32 +826,32 @@ function renderOverview(){
   </section>`:""}
 
   ${ys.length?`<section class="card">
-    <h3>Nákupy po letech</h3>
+    <h3>Výdaje po letech</h3>
     <div class="cols" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr));height:120px">${ys.map((y,i)=>`<div class="col" style="cursor:default"><span class="v">${kShort(sumY[i])}</span><span class="b" style="height:${Math.max(4,sumY[i]/maxY*100)}%"></span></div>`).join("")}</div>
     <div class="xl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map(y=>`<span style="${y===yr?"color:var(--fg);font-weight:600":""}">${y}</span>`).join("")}</div>
   </section>`:""}
 
-  <section class="card">
-    <h3>Kde nakupuješ</h3>
-    <div class="hbars">${shopArr.map(([k,o])=>`<div class="hb"><span>${esc(k)}</span><span class="t"><i style="width:${o.v?Math.max(3,o.v/maxS*100):0}%"></i></span><span class="k">${o.v?kc(o.v):plural(o.n,"kus","kusy","kusů")}</span></div>`).join("")}</div>
-  </section>
+  <section class="card"><h3>Podle kategorie</h3><div class="hbars">${bars(cats)}</div></section>
+  <section class="card"><h3>Kde nakupuješ</h3><div class="hbars">${bars(shopArr)}</div></section>
 
   ${cl.length?`<section class="card">
     <h3>Reklamace</h3>
-    <div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <div class="tiles">
       <div class="tile" style="background:var(--bg)"><b>${cl.length}</b><span>celkem</span></div>
       <div class="tile ${open?"warn":""}" style="background:var(--bg)"><b>${open}</b><span>probíhá</span></div>
       <div class="tile" style="background:var(--bg)"><b>${avg!=null?avg:"—"}</b><span>dní průměrně</span></div>
     </div>
-    ${done.length?`<p class="muted">${inTime} z ${done.length} obchod vyřídil do 30 dnů. Úspěšných ${okRes} z ${done.length}.</p>
+    ${done.length?`<p class="muted">${inTime} z ${done.length} vyřízeno do 30 dnů. Úspěšných ${okRes} z ${done.length}.</p>
     <div class="pills">${Object.entries(res).map(([k,n])=>`<span>${esc(k)} ${n}×</span>`).join("")}</div>`:`<p class="muted">Zatím žádná reklamace není uzavřená.</p>`}
+    <div class="mlist">${hist}</div>
   </section>`:""}
 
   <section class="card">
     <h3>Doklady</h3>
-    <p class="muted">${withPhoto} z ${items.length} položek má fotku dokladu nebo PDF.</p>
-    ${noPhoto.length?`<div class="mlist" style="border-top:0;padding-top:0"><div style="font-size:.84rem;font-weight:600">V záruce a bez dokladu</div>${noPhoto.slice(0,5).map(x=>`<button type="button" class="linkrow mrow" data-open="${esc(x.it.id)}"><span class="d">${x.txt}</span><span class="n">${esc(x.it.name)}</span><span class="c">přidat</span></button>`).join("")}</div>`:`<p class="muted">Všechno v záruce má doklad.</p>`}
-  </section>`;
+    <p class="muted">${withDoc} z ${items.length} položek má fotku dokladu nebo PDF.</p>
+    ${noDoc.length?`<div class="mlist" style="border-top:0;padding-top:0"><div style="font-size:.84rem;font-weight:600">V záruce a bez dokladu</div>${noDoc.slice(0,5).map(x=>`<button type="button" class="linkrow mrow" data-open="${esc(x.it.id)}"><span class="d">${x.txt}</span><span class="n">${esc(x.it.name)}</span><span class="c">přidat</span></button>`).join("")}</div>`:`<p class="muted">Všechno v záruce má doklad.</p>`}
+  </section>
+  <button type="button" class="linkbtn" data-legal>Jak se počítají záruky a lhůty</button>`;
 }
 function setView(v){view=v;try{localStorage.setItem("zaruky-view",v)}catch(e){}render();window.scrollTo(0,0)}
 $("t-list").onclick=()=>setView("list");
@@ -518,13 +860,21 @@ $("overview").addEventListener("click",e=>{
   const c=e.target.closest("[data-m]");if(c){selMonth=+c.dataset.m;renderOverview();return}
   const o=e.target.closest("[data-open]");if(o){const it=findItem(o.dataset.open);if(it)openForm(it)}
 });
+$("listView").addEventListener("click",e=>{
+  if(e.target.closest("#up-cal")){openRemind(null);return}
+  const o=e.target.closest("[data-open]");if(o){const it=findItem(o.dataset.open);if(it)openForm(it)}
+});
+
+/* ======================================================================
+   small UI helpers
+   ====================================================================== */
 function backupDue(){if(sample||!items.length)return false;if(!meta.lastBackup)return items.length>=3;return diffDays(today,P(meta.lastBackup))>30}
 function renderBackupNote(){
   const due=backupDue();$("backup").classList.toggle("due",due);
   $("backupNote").hidden=!due;
-  if(due)$("backupNote").textContent=meta.lastBackup?`Poslední záloha je z ${fmtD(meta.lastBackup)}. Udělej novou přes tlačítko Záloha.`:"Ještě nemáš zálohu. Udělej ji přes tlačítko Záloha, ať o data nepřijdeš.";
+  if(due)$("backupNote").textContent=meta.lastBackup?`Poslední záloha je z ${fmtD(meta.lastBackup)}. Doporučuji zálohovat jednou měsíčně, udělej novou přes tlačítko Záloha.`:"Ještě nemáš zálohu. Udělej ji přes tlačítko Záloha, ať o data nepřijdeš.";
 }
-function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3200)}
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3600)}
 /* scroll lock + focus: move focus into the opened panel (not into a field, so the phone keyboard stays down) and back afterwards */
 let lastFocus=null;
 function lock(on,panel){
@@ -532,106 +882,200 @@ function lock(on,panel){
   if(on){lastFocus=document.activeElement;if(panel){panel.scrollTop=0;try{panel.focus({preventScroll:true})}catch(e){}}}
   else if(lastFocus){const f=lastFocus;lastFocus=null;if(document.contains(f))try{f.focus({preventScroll:true})}catch(e){}}
 }
-/* force: only an explicit restore from backup may write while loading failed */
-async function persist(force){
-  if(loadFailed&&!force){toast("Data se nenačetla, proto teď nic neukládám. Zavři aplikaci a otevři ji znovu.");return false}
-  if(sample)return true;const ok=await Store.set(KEY,items);if(!ok)toast("Uložení se nepovedlo. Zkus odebrat některé fotky.");return ok}
-
-/* ---------- confirm-on-second-tap helper ---------- */
+const SHEETS=["sheet","csheet","rsheet","msheet","bsheet","lsheet","pviewer","viewer"];
+const anySheetOpen=()=>SHEETS.some(id=>!$(id).hidden);
+/* sheets that open over another one; opened alone (e.g. from the list) they take over the scroll lock */
+function openSub(id,panelId){
+  const s=$(id),solo=!anySheetOpen();s.dataset.solo=solo?"1":"";s.hidden=false;
+  if(solo)lock(true,$(panelId));else{$(panelId).scrollTop=0;try{$(panelId).focus({preventScroll:true})}catch(e){}}
+}
+function closeSub(id){const s=$(id);if(s.hidden)return;s.hidden=true;if(s.dataset.solo==="1")closeSheets()}
+function closeSheets(){
+  SHEETS.forEach(id=>$(id).hidden=true);closePdf();lock(false);
+  fDocs=[];cw=null;formData.clear();cData.clear();fileCache.clear();pruneFiles();
+  pendingRestore=null;readyBackup=null;
+  if(pendingReload){pendingReload=false;reloadFromStore()}
+}
+function closeTop(){
+  if(!$("pviewer").hidden){closePdf();return}
+  if(!$("viewer").hidden){$("viewer").hidden=true;return}
+  if(!$("lsheet").hidden){closeSub("lsheet");return}
+  if(!$("rsheet").hidden){closeSub("rsheet");return}
+  if(!$("msheet").hidden){closeSub("msheet");return}
+  if(!$("csheet").hidden){closeClaim();return}
+  if(!$("sheet").hidden){tryCloseForm();return}
+  closeSheets();
+}
+/* confirm-on-second-tap */
 function armed(btn,label,armedLabel){
   if(btn.dataset.armed==="1"){disarm(btn,label);return true}
   btn.dataset.armed="1";btn.textContent=armedLabel;btn.classList.add("armed");
   clearTimeout(btn._t);btn._t=setTimeout(()=>disarm(btn,label),3500);return false;
 }
 function disarm(btn,label){btn.dataset.armed="";btn.textContent=label;btn.classList.remove("armed");clearTimeout(btn._t)}
+document.addEventListener("click",e=>{if(e.target.closest("[data-legal]"))openSub("lsheet","lpanel")});
+$("l-close").onclick=()=>closeSub("lsheet");
+$("lsheet").addEventListener("click",e=>{if(e.target.id==="lsheet")closeSub("lsheet")});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeTop()});
 
-/* ---------- form ---------- */
+/* ======================================================================
+   attachments (shared by receipts and claims)
+   ====================================================================== */
+function docsHTML(list,data,label){
+  return list.map((d,i)=>d.kind==="pdf"
+    ?`<div class="thumb"><button type="button" class="pdf-tile" data-view="${i}" aria-label="Otevřít ${esc(d.name)}"><b>PDF</b><span>${esc(d.name)}</span><span>${d.size?fmtSize(d.size):""}</span></button><button type="button" class="rm" data-rm="${i}" aria-label="Odebrat ${esc(d.name||"PDF")}">×</button></div>`
+    :`<div class="thumb">${data.has(d.id)?(data.get(d.id)?`<img src="${esc(data.get(d.id))}" alt="${label} ${i+1}, klepnutím zvětšíš" data-view="${i}">`:`<span class="ph">Fotka chybí</span>`):`<span class="ph">Načítám…</span>`}<button type="button" class="rm" data-rm="${i}" aria-label="Odebrat fotku ${i+1}">×</button></div>`).join("");
+}
+const addTile=(txt,id)=>`<span class="btn file-btn">${txt}<input type="file" id="${id}" accept="image/*,application/pdf,.pdf" aria-label="Přidat fotku nebo PDF"></span>`;
+const isPdfFile=f=>f.type==="application/pdf"||/\.pdf$/i.test(f.name||"");
+/* photo -> JPEG max 1400 px; PDF -> validated data URL */
+function readAttachment(f){return new Promise(res=>{
+  if(isPdfFile(f)){
+    if(f.size>MAX_PDF_MB*1048576){toast(`PDF je moc velké (${fmtSize(f.size)}). Limit je ${MAX_PDF_MB} MB.`);return res(null)}
+    const r=new FileReader();
+    r.onload=()=>{let data=String(r.result);
+      if(!data.startsWith("data:application/pdf"))data=data.replace(/^data:[^;,]*/,"data:application/pdf");
+      if(!/^data:application\/pdf;base64,JVBERi/.test(data)){toast("Tohle není platné PDF.");return res(null)}
+      res({kind:"pdf",name:clip(f.name||"doklad.pdf",120),size:f.size,data})};
+    r.onerror=()=>{toast("PDF se nepodařilo načíst.");res(null)};
+    r.readAsDataURL(f);return;
+  }
+  const url=URL.createObjectURL(f),img=new Image();
+  img.onload=()=>{
+    const s=Math.min(1,1400/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement("canvas");
+    c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
+    const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);const data=c.toDataURL("image/jpeg",.75);
+    res({kind:"img",name:"",size:Math.round(data.length*.75),data});
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);toast("Tuhle fotku se nepodařilo načíst. Zkus jinou.");res(null)};
+  img.src=url;
+})}
+async function openDoc(d,map){
+  if(!d)return;
+  const data=map.get(d.id)||await getData(d.id);
+  if(!data){toast("Tento doklad se nepodařilo načíst.");return}
+  if(d.kind==="pdf")showPdf({name:d.name||"doklad.pdf",data});else{$("v-img").src=data;$("viewer").hidden=false}
+}
+async function loadImages(list,map,still,redraw){
+  for(const d of list)if(d.kind==="img"&&!map.has(d.id)){const v=await getData(d.id);if(!still())return;map.set(d.id,v||"")}
+  if(still())redraw();
+}
+
+/* ======================================================================
+   receipt form
+   ====================================================================== */
 /* formSeq changes with every opened form, so late async results (photo resize, PDF reading) can tell they belong to an old one */
-let formSeq=0;
+let formSeq=0,editId=null,fDocs=[],dateTouched=false,formSnap="",closeArmed=false;
+const formData=new Map();
+const FIELDS=["f-name","f-shop","f-price","f-cat","f-kind","f-date","f-received","f-months","f-order","f-note"];
+const formState=()=>JSON.stringify([...FIELDS.map(id=>$(id).value),$("f-returned").checked,fDocs.map(d=>d.id)]);
 function openForm(it){
   formSeq++;
-  editId=it?it.id:null;photos=it?it.photos.slice():[];pdfs=it?it.pdfs.map(f=>({...f})):[];dateTouched=!!it;claims=it?it.claims.map(c=>({...c})):[];
+  editId=it?it.id:null;fDocs=it?it.docs.map(d=>({...d})):[];dateTouched=!!it;formData.clear();
   $("ftitle").textContent=it?"Upravit účtenku":"Nová účtenka";
   $("f-name").value=it?.name||"";$("f-shop").value=it?.shop||"";$("f-price").value=it&&it.price!==""?String(it.price).replace(".",","):"";
-  $("f-date").value=it?.date||iso(today);$("f-date").max=iso(today);$("f-months").value=String(it?.months||24);$("f-order").value=it?.order||"";$("f-note").value=it?.note||"";
-  renderThumbs();renderClaims();updatePresume();updateMonthsNote();
-  $("claimBox").hidden=!it;
+  $("f-cat").value=it?.cat||"";$("f-kind").value=it?.kind||"new";
+  $("f-date").value=it?.date||iso(today);$("f-date").max=iso(today);
+  $("f-received").value=it?.received||"";$("f-received").max=iso(today);$("f-received").min=$("f-date").value;
+  $("f-months").value=String(it?.months||24);$("f-order").value=it?.order||"";$("f-note").value=it?.note||"";
+  $("f-returned").checked=!!it?.returned;
+  $("f-docnote").hidden=true;
+  const cats=[...new Set(["Elektronika","Domácí spotřebiče","Nábytek","Sport","Zahrada","Oblečení","Nářadí",...items.map(i=>i.cat).filter(Boolean)])];
+  $("cats").innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join("");
+  renderThumbs();renderClaims();updateNotes();
+  $("claimBox").hidden=!it;$("remindBox").hidden=!it||it.returned;
   $("f-del").hidden=!it;disarm($("f-del"),"Smazat");
   $("sheet").hidden=false;lock(true,$("form"));
   formSnap=formState();closeArmed=false;
+  const tok=formSeq;loadImages(fDocs,formData,()=>tok===formSeq&&!$("sheet").hidden,renderThumbs);
 }
 /* unsaved-changes guard for tap-outside and Escape ("Zrušit" stays an explicit discard) */
-let formSnap="",closeArmed=false;
-const formState=()=>JSON.stringify([...["f-name","f-shop","f-price","f-date","f-months","f-order","f-note"].map(id=>$(id).value),photos.map(p=>p.length),pdfs.map(f=>f.data.length)]);
 function tryCloseForm(){
   if(formState()===formSnap||closeArmed){closeSheets();return}
   closeArmed=true;clearTimeout(tryCloseForm.t);tryCloseForm.t=setTimeout(()=>closeArmed=false,3500);
   toast("Máš neuložené změny. Zopakuj to pro zavření bez uložení, nebo dej Uložit.");
 }
-function updatePresume(){
-  const d=$("f-date").value;if(!isDate(d)){$("f-presume").hidden=true;return}
-  const y=addMonths(d,12),left=diffDays(y,today);
-  $("f-presume").hidden=left<0;
-  $("f-presume").textContent=`Do ${fmtD(y)} platí, že vada byla už při koupi. Obchod by musel dokázat opak.`;
+/* legal hints for the chosen kind of purchase and period */
+function updateNotes(){
+  const kind=$("f-kind").value,m=+$("f-months").value,d=$("f-date").value,r=$("f-received").value;
+  let w="",i="";
+  if(kind==="new"&&m<24)w="Na nové zboží máš jako spotřebitel nárok na 24 měsíců.";
+  else if(kind==="used"&&m<12)w="U použitého zboží jde dobu zkrátit nejvýš na 12 měsíců.";
+  if(kind==="business")i="Při nákupu na firmu se spotřebitelská pravidla nepoužijí (domněnka vady, 30 dní na vyřízení reklamace). Platí smlouva a obchodní podmínky.";
+  else if(m>24)i="Doba nad 24 měsíců je dobrovolná obchodní záruka prodejce nebo výrobce. Podmínky najdeš v záručním listu, zákonná práva ti zůstávají.";
+  const start=isDate(r)&&r>d?r:d;
+  if(!i&&kind!=="business"&&isDate(start)){const y=addMonths(start,12);if(diffDays(y,today)>=0)i=`Do ${fmtD(y)} se má za to, že vada byla na věci už při převzetí. Prodejce by musel dokázat opak.`}
+  $("f-mnote").hidden=!w;$("f-mnote").textContent=w;
+  $("f-presume").hidden=!i;$("f-presume").textContent=i;
 }
-$("f-date").onchange=updatePresume;
-/* consumers get 24 months; only used goods may be shortened to 12; 6 makes sense only for business purchases */
-function updateMonthsNote(){
-  const m=+$("f-months").value,el=$("f-mnote");
-  el.hidden=m>=24;
-  el.textContent=m===6?"6 měsíců platí jen při nákupu na firmu. Jako spotřebitel máš na nové zboží 24 měsíců.":"12 měsíců jde jen u použitého zboží. Na nové zboží máš jako spotřebitel 24 měsíců.";
-}
-$("f-months").onchange=updateMonthsNote;
-function renderThumbs(){
-  const canAdd=photos.length<MAX_PHOTOS||pdfs.length<MAX_PDFS;
-  $("thumbs").innerHTML=photos.map((p,i)=>`<div class="thumb"><img src="${esc(p)}" alt="Fotka ${i+1}, klepnutím zvětšíš" data-view="${i}"><button type="button" data-rm="${i}" aria-label="Odebrat fotku ${i+1}">×</button></div>`).join("")+
-    pdfs.map((f,i)=>`<div class="thumb"><button type="button" class="pdf-tile" data-viewpdf="${i}" aria-label="Otevřít ${esc(f.name)}"><b>PDF</b><span>${esc(f.name)}</span><span>${fmtSize(f.size)}</span></button><button type="button" data-rmpdf="${i}" aria-label="Odebrat ${esc(f.name)}">×</button></div>`).join("")+
-    (canAdd?`<span class="btn file-btn">${photos.length||pdfs.length?"Přidat doklad":"Fotka nebo PDF"}<input id="f-photo" type="file" accept="image/*,application/pdf,.pdf" aria-label="Přidat fotku nebo PDF"></span>`:"");
-  const inp=$("f-photo");if(inp)inp.onchange=onPhoto;
-}
-const fmtSize=b=>b>=1048576?(b/1048576).toLocaleString("cs-CZ",{maximumFractionDigits:1})+" MB":Math.max(1,Math.round(b/1024))+" kB";
-$("thumbs").onclick=e=>{
-  const rm=e.target.closest("[data-rm]");
-  if(rm){if(!armed(rm,"×","?"))return;photos.splice(+rm.dataset.rm,1);renderThumbs();return}
-  const rp=e.target.closest("[data-rmpdf]");
-  if(rp){if(!armed(rp,"×","?"))return;pdfs.splice(+rp.dataset.rmpdf,1);renderThumbs();return}
-  const vp=e.target.closest("[data-viewpdf]");if(vp){showPdf(pdfs[+vp.dataset.viewpdf]);return}
-  const v=e.target.closest("[data-view]");if(v){$("v-img").src=photos[+v.dataset.view];$("viewer").hidden=false}
-};
-function onPhoto(e){
-  const f=e.target.files&&e.target.files[0];if(!f)return;
-  if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){addPdf(f);return}
-  if(photos.length>=MAX_PHOTOS){toast(`Fotek může být nejvýš ${MAX_PHOTOS}.`);renderThumbs();return}
-  const url=URL.createObjectURL(f),img=new Image(),tok=formSeq;
-  img.onload=()=>{
-    if(tok!==formSeq||$("sheet").hidden){URL.revokeObjectURL(url);return}
-    const s=Math.min(1,1400/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement("canvas");
-    c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
-    const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
-    URL.revokeObjectURL(url);
-    if(photos.length<MAX_PHOTOS)photos.push(c.toDataURL("image/jpeg",.75));
-    renderThumbs();
-  };
-  img.onerror=()=>{URL.revokeObjectURL(url);toast("Tuhle fotku se nepodařilo načíst. Zkus jinou.")};
-  img.src=url;
-}
-/* ---------- PDF invoices ---------- */
-let dateTouched=false;
+["f-kind","f-months","f-date","f-received"].forEach(id=>$(id).addEventListener("change",updateNotes));
+$("f-date").addEventListener("change",()=>{const d=$("f-date").value;$("f-received").min=isDate(d)?d:""});
 $("f-date").addEventListener("input",()=>dateTouched=true);
-function addPdf(f){
-  if(pdfs.length>=MAX_PDFS){toast(`PDF může být nejvýš ${MAX_PDFS}.`);renderThumbs();return}
-  if(f.size>MAX_PDF_MB*1048576){toast(`PDF je moc velké (${fmtSize(f.size)}). Limit je ${MAX_PDF_MB} MB.`);renderThumbs();return}
-  const r=new FileReader(),tok=formSeq;
-  r.onload=()=>{
-    if(tok!==formSeq||$("sheet").hidden)return;
-    let data=String(r.result);
-    if(!data.startsWith("data:application/pdf"))data=data.replace(/^data:[^;,]*/,"data:application/pdf");
-    if(!/^data:application\/pdf;base64,JVBERi/.test(data)){toast("Tohle není platné PDF.");renderThumbs();return}
-    const doc={name:f.name||"faktura.pdf",size:f.size,data};pdfs.push(doc);renderThumbs();autofill(doc,tok);
-  };
-  r.onerror=()=>{toast("PDF se nepodařilo načíst.");renderThumbs()};
-  r.readAsDataURL(f);
+function renderThumbs(){
+  const ni=fDocs.filter(d=>d.kind==="img").length,np=fDocs.length-ni;
+  $("thumbs").innerHTML=docsHTML(fDocs,formData,"Fotka")+(ni<MAX_PHOTOS||np<MAX_PDFS?addTile(fDocs.length?"Přidat doklad":"Fotka nebo PDF","f-photo"):"");
 }
+$("thumbs").onclick=e=>{
+  const rm=e.target.closest("[data-rm]");if(rm){if(!armed(rm,"×","?"))return;fDocs.splice(+rm.dataset.rm,1);renderThumbs();return}
+  const v=e.target.closest("[data-view]");if(v)openDoc(fDocs[+v.dataset.view],formData);
+};
+$("thumbs").addEventListener("change",e=>{if(e.target.type==="file"){const f=e.target.files&&e.target.files[0];e.target.value="";if(f)addItemFile(f)}});
+async function addItemFile(f){
+  const tok=formSeq,cnt=k=>fDocs.filter(d=>d.kind===k).length,pdf=isPdfFile(f);
+  if(pdf&&cnt("pdf")>=MAX_PDFS){toast(`PDF může být nejvýš ${MAX_PDFS}.`);return}
+  if(!pdf&&cnt("img")>=MAX_PHOTOS){toast(`Fotek může být nejvýš ${MAX_PHOTOS}.`);return}
+  const a=await readAttachment(f);
+  if(!a||tok!==formSeq||$("sheet").hidden)return;
+  if(cnt(a.kind)>=(a.kind==="pdf"?MAX_PDFS:MAX_PHOTOS))return;
+  const id=newId("f");pendingFiles.set(id,a.data);formData.set(id,a.data);
+  fDocs.push({id,kind:a.kind,name:a.name,size:a.size});renderThumbs();
+  if(a.kind==="pdf")scanPdf(a.data,tok);
+}
+function renderClaims(){
+  const it=findItem(editId),cl=it?it.claims:[];
+  $("claims").innerHTML=cl.length?cl.slice().sort((a,b)=>b.from.localeCompare(a.from)).map(c=>{
+    const s=!c.to?claimStatus(it,c):null;
+    return `<button type="button" class="claim" data-claim="${esc(c.id)}"><b>${c.to?`${fmtD(c.from)} → ${fmtD(c.to)} · ${esc(c.result||"vyřízeno")}`:`Probíhá od ${fmtD(c.from)}`}${c.protocol?` · č. ${esc(c.protocol)}`:""}</b>${s&&s.dl?`<span class="${s.dd<0?"late":""}">${s.dd<0?`Lhůta pro vyřízení uplynula ${fmtD(s.dl)}`:s.dd===0?"Lhůta pro vyřízení končí dnes":`Vyřídit do ${fmtD(s.dl)}, zbývá ${s.dd} ${days(s.dd)}`}</span>`:""}${c.note?`<span>${esc(c.note)}</span>`:""}${c.files.length||c.log.length?`<span>${[c.files.length?plural(c.files.length,"příloha","přílohy","příloh"):"",c.log.length?plural(c.log.length,"záznam","záznamy","záznamů"):""].filter(Boolean).join(" · ")}</span>`:""}</button>`}).join(""):`<p>Zatím žádná reklamace.</p>`;
+  $("f-claim").hidden=!!(it&&openClaim(it));
+}
+$("claims").onclick=e=>{const b=e.target.closest("[data-claim]");if(b)openClaimEditor(b.dataset.claim)};
+$("f-claim").onclick=()=>openClaimEditor(null);
+$("f-remind").onclick=()=>{const it=findItem(editId);if(it)openRemind(it)};
+$("add").onclick=()=>openForm(null);
+$("f-cancel").onclick=closeSheets;
+$("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")tryCloseForm()});
+$("filters").onclick=e=>{const b=e.target.closest("[data-f]");if(b){filter=b.dataset.f;render()}};
+$("q").oninput=render;
+$("list").onclick=e=>{const c=e.target.closest(".item");if(c){const it=findItem(c.dataset.id);if(it)openForm(it)}};
+$("list").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){const c=e.target.closest(".item");if(c){e.preventDefault();const it=findItem(c.dataset.id);if(it)openForm(it)}}};
+$("viewer").onclick=()=>$("viewer").hidden=true;
+$("f-del").onclick=async()=>{
+  if(!armed($("f-del"),"Smazat","Klepni znovu pro smazání"))return;
+  if(await commit(items.filter(i=>i.id!==editId))){closeSheets();render();toast("Smazáno")}
+};
+$("form").onsubmit=async e=>{
+  e.preventDefault();
+  const name=$("f-name").value.trim(),date=$("f-date").value,received=$("f-received").value,price=parsePrice($("f-price").value);
+  if(!name){toast("Doplň název věci.");return}
+  if(!isDate(date)){toast("Doplň datum nákupu.");return}
+  if(price===null){toast("Cena musí být číslo, třeba 1299 nebo 1299,90.");return}
+  if(P(date)>today){toast("Datum nákupu nemůže být v budoucnu.");return}
+  if(received){if(!isDate(received)||received<date){toast("Převzetí nemůže být dřív než nákup.");return}if(P(received)>today){toast("Datum převzetí nemůže být v budoucnu.");return}}
+  /* the first own receipt replaces the sample data; if saving fails, the sample comes back */
+  const wasSample=sample,sampleItems=items;
+  if(sample){items=[];sample=false;editId=null}
+  const old=findItem(editId);
+  const it={id:old?old.id:newId("u"),name,shop:clip($("f-shop").value.trim(),60),price,cat:clip($("f-cat").value.trim(),40),kind:$("f-kind").value,
+    date,received:received&&received!==date?received:"",months:+$("f-months").value,order:$("f-order").value.trim(),note:$("f-note").value.trim(),
+    returned:$("f-returned").checked,docs:fDocs.map(d=>({...d})),claims:old?old.claims:[]};
+  if(await commit(old?items.map(x=>x.id===old.id?it:x):[...items,it])){closeSheets();render();toast("Uloženo")}
+  else if(wasSample&&!items.length){items=sampleItems;sample=true;render()}
+};
+
+/* ======================================================================
+   PDF: viewer + reading the invoice text (no OCR: scans are reported, not read)
+   ====================================================================== */
 function dataToBytes(d){const b=atob(d.slice(d.indexOf(",")+1));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 const dataToBlob=d=>new Blob([dataToBytes(d)],{type:"application/pdf"});
 const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
@@ -649,19 +1093,17 @@ function loadPdfJs(){
   return pdfjsP;
 }
 /* isEvalSupported:false closes CVE-2024-4367 (code execution from a crafted PDF font) in pdf.js 3.x */
-const openPdfDoc=(lib,doc)=>lib.getDocument({data:dataToBytes(doc.data),isEvalSupported:false}).promise;
+const openPdfDoc=(lib,data)=>lib.getDocument({data:dataToBytes(data),isEvalSupported:false}).promise;
 let pvDoc=null,pvToken=0,pvPdf=null;
-const isStandalone=()=>window.navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
 async function showPdf(doc){
   if(!doc)return;pvDoc=doc;const token=++pvToken;
   $("pv-name").textContent=doc.name;$("pv-open").hidden=isStandalone();
   const box=$("pv-pages");box.innerHTML="<p>Načítám náhled…</p>";$("pviewer").hidden=false;
   try{
     const lib=await loadPdfJs();
-    const pdf=await openPdfDoc(lib,doc);
+    const pdf=await openPdfDoc(lib,doc.data);
     if(token!==pvToken){pdf.destroy();return}
-    pvPdf=pdf;
-    box.innerHTML="";
+    pvPdf=pdf;box.innerHTML="";
     const w=Math.min(box.clientWidth-20||360,900),dpr=Math.min(2,window.devicePixelRatio||1),n=Math.min(pdf.numPages,15);
     for(let i=1;i<=n;i++){
       const page=await pdf.getPage(i);if(token!==pvToken||$("pviewer").hidden)return;
@@ -677,6 +1119,7 @@ async function showPdf(doc){
 }
 function closePdf(){pvToken++;$("pviewer").hidden=true;$("pv-pages").innerHTML="";if(pvPdf){try{pvPdf.destroy()}catch(e){}pvPdf=null}}
 $("pv-close").onclick=closePdf;
+$("v-close").onclick=e=>{e.stopPropagation();$("viewer").hidden=true};
 $("pv-share").onclick=async()=>{
   if(!pvDoc)return;
   const file=new File([dataToBlob(pvDoc.data)],pvDoc.name,{type:"application/pdf"});
@@ -690,196 +1133,452 @@ function openPdfTab(doc){
   a.href=url;a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),120000);
 }
-/* read the invoice text and pre-fill empty fields */
+
 /* [name, pattern]: names that are also ordinary words or product brands only match as a seller (domain or company name),
    otherwise "Apple iPhone" on any invoice would fill in Apple as the shop */
 const SHOPS=[["Alza"],["Datart"],["Mall","mall\\.cz|mall\\s+group|internet\\s+mall"],["CZC"],["Electro World"],["Okay","okay\\.cz|okay\\s+holding"],["Euronics"],["Notino"],["Kasa","kasa\\.cz"],["Mironet"],["Lidl"],["Kaufland"],["IKEA"],["Hornbach"],["OBI"],["Bauhaus"],["Decathlon"],["Sportisimo"],
   ["Apple","apple\\.com|apple\\s+(?:distribution|store|czech|sales)"],["Samsung","samsung\\.com|samsung\\s+electronics\\s+czech"],["Xiaomi","mi\\.com|xiaomi\\.(?:cz|com)"],["Planeo"],["Tescoma"],["Mountfield"],["Conrad","conrad\\.cz|conrad\\s+electronic"],["Allegro","allegro\\.(?:cz|pl)"],["Amazon","amazon\\.(?:cz|de|com|co\\.uk)|amazon\\s+eu"],["Rohlík","rohlik\\.cz|rohlík\\.cz|velká\\s+pecka"]];
+const CZ_MONTHS=["ledna","února","března","dubna","května","června","července","srpna","září","října","listopadu","prosince"];
+/* label words before a date; the label that ends closest to the date wins */
+const DATE_KINDS=[
+  ["recv",/převzetí|převzato|dodání|dodáno|doručení|doručeno|dodávky/gi,"Převzetí / dodání"],
+  ["due",/splatnost/gi,"Splatnost"],
+  ["sale",/prodeje|nákupu|uskutečnění|zdanitelného|duzp|\buzp\b/gi,"Prodej / zdanitelné plnění"],
+  ["order",/objednávk|objednán/gi,"Objednávka"],
+  ["issue",/vystaven|datum\s+dokladu|datum\s+faktury|datum\s*:/gi,"Vystavení dokladu"],
+];
+const DATE_PRI={sale:1,issue:2,order:3,recv:4,none:5};
+/* returns every candidate (so the user can pick), the default first, plus warnings when it is not clear-cut */
 function parseInvoice(text){
   const t=text.replace(/\u00a0/g," ").replace(/[ \t]+/g," ");
-  const out={};
-  const dateRe=/(\d{1,2})\.\s?(\d{1,2})\.\s?(20\d{2})/g;
-  const toIso=m=>{const d=+m[1],mo=+m[2],y=+m[3];if(d<1||d>31||mo<1||mo>12)return null;return `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`};
-  const pref=/(datum\s+(vystavení|prodeje|uskutečnění|nákupu|objednávky|zdanitelného)|DUZP|vystaveno)[^0-9]{0,40}(\d{1,2})\.\s?(\d{1,2})\.\s?(20\d{2})/i.exec(t);
-  if(pref)out.date=toIso([null,pref[3],pref[4],pref[5]]);
-  else{const m=dateRe.exec(t);if(m)out.date=toIso(m)}
-  const amtRe=/(celkem\s+k\s+úhradě|k\s+úhradě|celkem\s+s\s+dph|cena\s+celkem|celková\s+částka|celkem|total)[^0-9\-]{0,30}(\d{1,3}(?:[ .]\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)(?!\d|,\d)\s*(?:Kč|CZK|,-)?/gi;
-  let best=null,m;
-  while((m=amtRe.exec(t))){const v=parseFloat(m[2].replace(/[ .](?=\d{3}\b)/g,"").replace(",","."));const w=/úhrad/i.test(m[1])?3:/dph|celkem s/i.test(m[1])?2:1;if(v>0&&v<1e7&&(!best||w>best.w||(w===best.w&&v>best.v)))best={v,w}}
-  if(best)out.price=best.v;
+  const out={dates:[],prices:[],shop:"",order:"",warn:[]};
+  /* dates */
+  const dRe=new RegExp(`(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(20\\d{2})|(20\\d{2})-(\\d{2})-(\\d{2})|(\\d{1,2})\\/(\\d{1,2})\\/(20\\d{2})|(\\d{1,2})\\.\\s?(${CZ_MONTHS.join("|")})\\s+(20\\d{2})`,"gi");
+  const found=[];let m,prevEnd=0;
+  const minD=new Date(today);minD.setFullYear(minD.getFullYear()-15);
+  while((m=dRe.exec(t))){
+    let y,mo,d;
+    if(m[1]){d=+m[1];mo=+m[2];y=+m[3]}else if(m[4]){y=+m[4];mo=+m[5];d=+m[6]}else if(m[7]){d=+m[7];mo=+m[8];y=+m[9]}else{d=+m[10];mo=CZ_MONTHS.indexOf(m[11].toLowerCase())+1;y=+m[12]}
+    const s=`${y}-${pad2(mo)}-${pad2(d)}`;
+    const win=t.slice(Math.max(prevEnd,m.index-60),m.index);prevEnd=m.index+m[0].length;
+    if(!isDate(s)||P(s)>today||P(s)<minD)continue;
+    let type="none",best=-1,label="Bez popisu";
+    for(const[k,re,l]of DATE_KINDS){re.lastIndex=0;let x;while((x=re.exec(win))){const e=x.index+x[0].length;if(e>best){best=e;type=k;label=l}}}
+    found.push({iso:s,type,label});
+  }
+  const byIso=new Map();
+  for(const f of found.filter(f=>f.type!=="due")){const o=byIso.get(f.iso);if(!o||DATE_PRI[f.type]<DATE_PRI[o.type])byIso.set(f.iso,f)}
+  out.dates=[...byIso.values()].sort((a,b)=>DATE_PRI[a.type]-DATE_PRI[b.type]||a.iso.localeCompare(b.iso));
+  out.recv=found.filter(f=>f.type==="recv").filter((f,i,a)=>a.findIndex(g=>g.iso===f.iso)===i);
+  const labelled=new Set(found.filter(f=>["sale","issue","order"].includes(f.type)).map(f=>f.iso));
+  if(!out.dates.length)out.warn.push("Datum nákupu jsem v dokladu nenašel.");
+  else if(out.dates[0].type==="none")out.warn.push("Datum není v dokladu jasně označené. Zkontroluj, že je to opravdu datum nákupu.");
+  else if(labelled.size>1)out.warn.push("Doklad obsahuje víc různých dat (vystavení, plnění, objednávka…). Vyber datum nákupu. Pokud věc přišla později, vyplň i převzetí, záruka běží od něj.");
+  /* amounts: total incl. VAT beats "to pay" (which may be after a deposit), generic "celkem" is the weakest; ex-VAT lines are skipped */
+  const amtRe=/(celkem\s+k\s+úhradě|částka\s+k\s+úhradě|k\s+úhradě|zbývá\s+uhradit|k\s+zaplacení|zaplaceno|celkem\s+(?:s|vč\.?|včetně)\s+dph|cena\s+celkem\s+(?:s|vč\.?|včetně)\s+dph|celková\s+cena(?:\s+(?:s|vč\.?|včetně)\s+dph)?|celková\s+částka|cena\s+celkem|celkem\s+za\s+doklad|celkem|total)([^0-9\-]{0,30})(\d{1,3}(?:[ .]\d{3})+(?:,\d{1,2})?|\d+(?:[,.]\d{1,2})?)(?!\d|[,.]\d)/gi;
+  const prices=new Map();
+  while((m=amtRe.exec(t))){
+    const lab=m[1].toLowerCase(),gap=m[2].toLowerCase();
+    if(/bez\s+dph|bez\s+daně|základ/.test(gap)||/bez\s+dph|základ/.test(t.slice(m.index+m[0].length,m.index+m[0].length+12).toLowerCase()))continue;
+    let raw=m[3];
+    const v=/^\d{1,3}([ .]\d{3})+(,\d{1,2})?$/.test(raw)?parseFloat(raw.replace(/[ .]/g,"").replace(",",".")):parseFloat(raw.replace(",","."));
+    if(!(v>0&&v<1e7))continue;
+    const type=/dph|celková|cena\s+celkem|za\s+doklad/.test(lab)?"total":/úhrad|zaplac|zbývá/.test(lab)?"pay":"sum";
+    const score={total:3,pay:2,sum:1}[type],label={total:"Celkem s DPH",pay:"K úhradě / zaplaceno",sum:"Celkem"}[type];
+    const o=prices.get(v);if(!o||o.score<score)prices.set(v,{v,type,score,label});
+  }
+  out.prices=[...prices.values()].sort((a,b)=>b.score-a.score||b.v-a.v);
+  const strong=out.prices.filter(p=>p.score>=2);
+  if(!out.prices.length)out.warn.push("Celkovou cenu jsem v dokladu nenašel.");
+  else if(out.prices[0].type==="sum")out.warn.push("Cena není označená jako „celkem s DPH“ ani „k úhradě“. Zkontroluj ji.");
+  else if(strong.length>1)out.warn.push("Doklad obsahuje víc částek (třeba záloha, doprava nebo sleva). Vyber celkovou cenu s DPH.");
   const low=t.toLowerCase();
   const shop=SHOPS.find(([n,p])=>new RegExp("(?:^|[^\\p{L}\\d])(?:"+(p||n.toLowerCase().replace(/ /g,"\\s")+"(?:\\.cz)?")+")(?![\\p{L}\\d])","u").test(low));
   if(shop)out.shop=shop[0];
   const ord=/(číslo\s+(?:objednávky|faktury|dokladu)|variabilní\s+symbol|(?:faktura|doklad|objednávka)\s+č\.?)\s*:?\s*([A-Z0-9\-\/]{4,20})/i.exec(t);if(ord)out.order=ord[2];
   return out;
 }
-async function autofill(doc,tok){
+async function scanPdf(data,tok){
+  const note=s=>{if(tok!==formSeq)return;$("f-docnote").textContent=s;$("f-docnote").hidden=!s};
   let text="";
   try{
-    const lib=await loadPdfJs();const pdf=await openPdfDoc(lib,doc);
+    const lib=await loadPdfJs();const pdf=await openPdfDoc(lib,data);
     try{for(let i=1;i<=Math.min(3,pdf.numPages);i++){const tc=await (await pdf.getPage(i)).getTextContent();text+=tc.items.map(x=>x.str).join(" ")+"\n"}}
     finally{pdf.destroy()}
-  }catch(e){return}
+  }catch(e){note(navigator.onLine===false?"Údaje z PDF teď nejde přečíst, chybí internet. Vyplň je ručně.":"PDF se nepodařilo přečíst. Údaje vyplň ručně.");return}
   /* the form may have been closed or switched to another receipt while the PDF was being read */
   if(tok!==formSeq||$("sheet").hidden)return;
-  const r=parseInvoice(text),done=[];
-  if(r.price!=null&&!$("f-price").value.trim()){$("f-price").value=String(r.price).replace(".",",");done.push("cenu")}
-  if(r.date&&!dateTouched&&!editId&&P(r.date)<=today){$("f-date").value=r.date;updatePresume();done.push("datum")}
-  if(r.shop&&!$("f-shop").value.trim()){$("f-shop").value=r.shop;done.push("obchod")}
-  if(r.order&&!$("f-order").value.trim()){$("f-order").value=r.order;done.push("číslo dokladu")}
-  if(done.length)toast(`Z faktury jsem doplnil ${done.join(", ")}. Zkontroluj to.`);
+  if(text.replace(/\s/g,"").length<20){note("V PDF není text, nejspíš jde o sken. Datum a cenu vyplň ručně.");return}
+  const r=parseInvoice(text);
+  if(!r.dates.length&&!r.prices.length&&!r.shop&&!r.order){note("Na dokladu jsem nenašel datum ani cenu. Vyplň je ručně.");return}
+  note("");openReview(r);
 }
-function renderClaims(){
-  const oc=claims.find(c=>!c.to);
-  $("claims").innerHTML=claims.length?claims.slice().sort((a,b)=>b.from.localeCompare(a.from)).map(c=>`<div class="claim">
-    <b>${c.to?`${fmtD(c.from)} → ${fmtD(c.to)} · ${esc(c.result||"vyřízeno")}`:`Probíhá od ${fmtD(c.from)} · vyřídit do ${fmtD(addDays(c.from,30))}`}</b>
-    ${c.note?`<span>${esc(c.note)}</span>`:""}</div>`).join(""):`<p>Zatím žádná reklamace.</p>`;
-  $("f-claim").textContent=oc?"Reklamace vyřízena":"Zahájit reklamaci";
+/* review sheet: nothing is written into the form until the user confirms */
+let rCtx=null;
+const radioSet=(title,name,opts,def)=>`<fieldset class="fs"><legend>${title}</legend>${opts.map(([v,t,s])=>`<label class="opt"><input type="radio" name="${name}" value="${esc(v)}"${v===def?" checked":""}><span>${esc(t)}${s?`<small>${esc(s)}</small>`:""}</span></label>`).join("")}</fieldset>`;
+function openReview(r){
+  rCtx=r;
+  const curD=$("f-date").value,curR=$("f-received").value,curP=$("f-price").value.trim(),keepD=(dateTouched||!!editId)&&isDate(curD);
+  let h=r.warn.map(w=>`<p class="note w">${esc(w)}</p>`).join("");
+  if(r.dates.length)h+=radioSet("Datum nákupu","r-date",[...(keepD?[["keep",`Ponechat ${fmtD(curD)}`,"Současná hodnota"]]:[]),...r.dates.map(d=>[d.iso,fmtD(d.iso),d.label])],keepD?"keep":r.dates[0].iso);
+  if(r.recv.length){
+    const purchase=keepD?curD:r.dates[0]?.iso,cand=r.recv.find(d=>d.iso!==purchase);
+    h+=radioSet("Převzato","r-recv",[["none","Stejně jako nákup",""],...(curR?[["keep",`Ponechat ${fmtD(curR)}`,"Současná hodnota"]]:[]),...r.recv.map(d=>[d.iso,fmtD(d.iso),d.label])],curR?"keep":cand?cand.iso:"none");
+  }
+  if(r.prices.length)h+=radioSet("Cena","r-price",[...(curP?[["keep",`Ponechat ${curP} Kč`,"Současná hodnota"]]:[]),...r.prices.map(p=>[String(p.v),kc(p.v),p.label])],curP?"keep":String(r.prices[0].v));
+  if(r.shop)h+=`<label class="opt"><input type="checkbox" id="r-shop"${$("f-shop").value.trim()?"":" checked"}><span>Obchod: ${esc(r.shop)}${$("f-shop").value.trim()?`<small>Teď je vyplněno: ${esc($("f-shop").value.trim())}</small>`:""}</span></label>`;
+  if(r.order)h+=`<label class="opt"><input type="checkbox" id="r-order"${$("f-order").value.trim()?"":" checked"}><span>Číslo dokladu: ${esc(r.order)}</span></label>`;
+  $("r-body").innerHTML=h;
+  openSub("rsheet","rpanel");
 }
-function closeSheets(){["sheet","csheet","bsheet","viewer"].forEach(id=>$(id).hidden=true);closePdf();lock(false)}
-function closeTop(){
-  if(!$("pviewer").hidden){closePdf();return}
-  if(!$("viewer").hidden){$("viewer").hidden=true;return}
-  if(!$("csheet").hidden){closeClaim();return}
-  if(!$("sheet").hidden){tryCloseForm();return}
-  closeSheets();
-}
-$("add").onclick=()=>openForm(null);
-$("f-cancel").onclick=closeSheets;
-$("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")tryCloseForm()});
-$("bsheet").addEventListener("click",e=>{if(e.target.id==="bsheet")closeSheets()});
-$("csheet").addEventListener("click",e=>{if(e.target.id==="csheet")closeClaim()});
-function closeClaim(){$("csheet").hidden=true;try{$("f-claim").focus({preventScroll:true})}catch(e){}}
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeTop()});
-$("filters").onclick=e=>{const b=e.target.closest("[data-f]");if(b){filter=b.dataset.f;render()}};
-$("q").oninput=render;
-const findItem=id=>items.find(i=>i.id===id);
-$("list").onclick=e=>{const c=e.target.closest(".item");if(c)openForm(findItem(c.dataset.id))};
-$("list").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){const c=e.target.closest(".item");if(c){e.preventDefault();openForm(findItem(c.dataset.id))}}};
-$("viewer").onclick=()=>$("viewer").hidden=true;
-$("f-del").onclick=async()=>{
-  if(!armed($("f-del"),"Smazat","Klepni znovu pro smazání"))return;
-  const prev=items;items=items.filter(i=>i.id!==editId);
-  if(await persist()){closeSheets();render();toast("Smazáno")}else items=prev;
-};
-$("form").onsubmit=async e=>{
-  e.preventDefault();
-  const name=$("f-name").value.trim(),date=$("f-date").value,price=parsePrice($("f-price").value);
-  if(!name){toast("Doplň název věci.");return}
-  if(!isDate(date)){toast("Doplň datum nákupu.");return}
-  if(price===null){toast("Cena musí být číslo, třeba 1299 nebo 1299,90.");return}
-  if(P(date)>today){toast("Datum nákupu nemůže být v budoucnu.");return}
-  if(sample){items=[];sample=false;editId=null;claims=[]}
-  const it={id:editId||"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name,shop:$("f-shop").value.trim(),
-    price,date,months:+$("f-months").value,order:$("f-order").value.trim(),note:$("f-note").value.trim(),photos:photos.slice(),pdfs:pdfs.slice(),claims};
-  const prev=items.slice();
-  const i=items.findIndex(x=>x.id===editId);if(i>=0)items[i]=it;else items.push(it);
-  if(await persist()){closeSheets();render();toast("Uloženo")}else items=prev;
+$("r-cancel").onclick=()=>closeSub("rsheet");
+$("rsheet").addEventListener("click",e=>{if(e.target.id==="rsheet")closeSub("rsheet")});
+$("r-apply").onclick=()=>{
+  const v=n=>{const el=$("r-body").querySelector(`input[name="${n}"]:checked`);return el?el.value:null};
+  const done=[];
+  const d=v("r-date");if(d&&d!=="keep"){$("f-date").value=d;dateTouched=true;done.push("datum")}
+  const rc=v("r-recv");if(rc==="none")$("f-received").value="";else if(rc&&rc!=="keep"){$("f-received").value=rc;done.push("převzetí")}
+  const p=v("r-price");if(p&&p!=="keep"){$("f-price").value=String(+p).replace(".",",");done.push("cenu")}
+  if($("r-shop")&&$("r-shop").checked){$("f-shop").value=rCtx.shop;done.push("obchod")}
+  if($("r-order")&&$("r-order").checked){$("f-order").value=rCtx.order;done.push("číslo dokladu")}
+  updateNotes();closeSub("rsheet");if(done.length)toast(`Převzato: ${done.join(", ")}.`);
 };
 
-/* ---------- claims ---------- */
-$("f-claim").onclick=()=>{
+/* ======================================================================
+   claims
+   ====================================================================== */
+let cw=null;const cData=new Map();
+function openClaimEditor(id){
   if(sample){toast("K ukázkovým datům reklamaci nezapíšeš. Přidej vlastní účtenku.");return}
-  const oc=claims.find(c=>!c.to);
-  $("c-new").hidden=!!oc;$("c-end").hidden=!oc;
-  $("ctitle").textContent=oc?"Reklamace vyřízena":"Nová reklamace";
-  $("c-from").value=iso(today);$("c-from").max=iso(today);$("c-note").value="";
-  $("c-to").value=iso(today);$("c-to").max=iso(today);if(oc)$("c-to").min=oc.from;
-  $("csheet").hidden=false;try{$("cform").focus({preventScroll:true})}catch(e){}
+  const it=findItem(editId);if(!it)return;
+  const c=id?it.claims.find(x=>x.id===id):null;
+  if(!c&&openClaim(it)){toast("Nejdřív uzavři probíhající reklamaci.");return}
+  cw={id:c?c.id:newId("c"),isNew:!c,orig:c||{},files:c?c.files.map(f=>({...f})):[],log:c?c.log.map(l=>({...l})):[]};
+  cData.clear();
+  $("ctitle").textContent=c?"Reklamace":"Nová reklamace";
+  const t=iso(today);
+  $("c-from").value=c?.from||t;$("c-from").max=t;
+  $("c-protocol").value=c?.protocol||"";$("c-note").value=c?.note||"";$("c-atseller").checked=c?c.atSeller:true;
+  $("c-sent").value=c?.sent||"";$("c-sent").max=t;$("c-conf").value=c?.confirmed||"";$("c-conf").max=t;
+  $("c-ext").value=c?.extendedTo||"";
+  $("c-closed").checked=!!c?.to;$("c-to").value=c?.to||t;$("c-to").max=t;$("c-res").value=c?.result||"Opraveno";
+  $("c-refund").value=c&&c.refund!==""?String(c.refund).replace(".",","):"";
+  $("c-logd").value=t;$("c-logt").value="";
+  $("c-del").hidden=!c;disarm($("c-del"),"Smazat");
+  updateClaimUI();renderCThumbs();renderCLog();
+  openSub("csheet","cform");
+  const tok=cw;loadImages(cw.files,cData,()=>cw===tok,renderCThumbs);
+}
+function closeClaim(){$("csheet").hidden=true;cw=null;cData.clear();try{$("f-claim").hidden?$("claims").focus():$("f-claim").focus({preventScroll:true})}catch(e){}}
+function updateClaimUI(){
+  const closed=$("c-closed").checked,res=$("c-res").value,from=$("c-from").value;
+  $("c-endf").hidden=!closed;
+  /* hidden fields must not take part in the browser's form check (an out-of-range hidden date would silently block saving) */
+  $("c-to").disabled=$("c-res").disabled=$("c-refund").disabled=!closed;
+  $("c-refundw").hidden=!(res==="Vráceny peníze"||res==="Sleva");
+  $("c-to").min=isDate(from)?from:"";$("c-ext").min=isDate(from)?from:"";
+  const it=findItem(editId),el=$("c-deadline");
+  if(!it||!isDate(from)||closed){el.hidden=true;return}
+  const ext=isDate($("c-ext").value)?$("c-ext").value:"",s=claimStatus(it,{from,extendedTo:ext});
+  el.hidden=false;el.className="note "+(s.cls==="bad"?"bad":s.cls==="warn"?"w":"i");
+  el.textContent=!s.dl?"U nákupu na firmu neplatí zákonná 30denní lhůta. Pokud máte domluvenou lhůtu, vyplň ji níže."
+    :s.dd<0?`Lhůta pro vyřízení uplynula ${fmtD(s.dl)}. Obecně pak lze odstoupit od smlouvy nebo žádat přiměřenou slevu, záleží na okolnostech.`
+    :s.dd===0?`Lhůta pro vyřízení končí dnes (${fmtD(s.dl)}).`
+    :`Prodejce má reklamaci vyřídit do ${fmtD(s.dl)}${ext?" (dohodnutá lhůta)":" (30 dní od uplatnění)"}. Zbývá ${s.dd} ${days(s.dd)}.`;
+}
+["c-closed","c-res","c-from","c-ext"].forEach(id=>$(id).addEventListener("change",updateClaimUI));
+function renderCThumbs(){if(!cw)return;$("c-thumbs").innerHTML=docsHTML(cw.files,cData,"Příloha")+(cw.files.length<MAX_CLAIM_FILES?addTile("Fotka nebo PDF","c-file"):"")}
+$("c-thumbs").onclick=e=>{
+  if(!cw)return;
+  const rm=e.target.closest("[data-rm]");if(rm){if(!armed(rm,"×","?"))return;cw.files.splice(+rm.dataset.rm,1);renderCThumbs();return}
+  const v=e.target.closest("[data-view]");if(v)openDoc(cw.files[+v.dataset.view],cData);
 };
+$("c-thumbs").addEventListener("change",async e=>{
+  if(e.target.type!=="file"||!cw)return;
+  const f=e.target.files&&e.target.files[0];e.target.value="";if(!f)return;
+  const tok=cw;const a=await readAttachment(f);
+  if(!a||cw!==tok||cw.files.length>=MAX_CLAIM_FILES)return;
+  const id=newId("f");pendingFiles.set(id,a.data);cData.set(id,a.data);
+  cw.files.push({id,kind:a.kind,name:a.name||(a.kind==="pdf"?"příloha.pdf":""),size:a.size});renderCThumbs();
+});
+function renderCLog(){
+  if(!cw)return;
+  const rows=cw.log.map((l,i)=>({...l,i})).sort((a,b)=>b.d.localeCompare(a.d)||b.i-a.i);
+  $("c-log").innerHTML=rows.length?rows.map(l=>`<div class="logrow ${l.k}"><span class="d">${fmtD(l.d)}</span><span class="t">${esc(l.t)}</span>${l.k==="n"?`<button type="button" data-rmlog="${l.i}" aria-label="Smazat záznam">×</button>`:"<span></span>"}</div>`).join(""):`<p class="small" style="margin:0">Zatím bez záznamů. Historie stavů se doplní sama.</p>`;
+}
+$("c-log").onclick=e=>{const b=e.target.closest("[data-rmlog]");if(b&&cw){if(!armed(b,"×","?"))return;cw.log.splice(+b.dataset.rmlog,1);renderCLog()}};
+$("c-logadd").onclick=()=>{
+  if(!cw)return;
+  const d=$("c-logd").value,t=$("c-logt").value.trim();
+  if(!t){toast("Napiš, co se stalo.");return}
+  if(!isDate(d)||P(d)>today){toast("Datum záznamu nemůže být v budoucnu.");return}
+  cw.log.push({d,t:clip(t,500),k:"n"});$("c-logt").value="";renderCLog();
+};
+/* Enter in the note field adds the note instead of submitting (and closing) the whole claim */
+$("c-logt").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("c-logadd").click()}});
 $("c-cancel").onclick=closeClaim;
+$("csheet").addEventListener("click",e=>{if(e.target.id==="csheet")closeClaim()});
 $("cform").onsubmit=async e=>{
   e.preventDefault();
-  const oc=claims.find(c=>!c.to);
-  if(oc){const to=$("c-to").value;if(!isDate(to)||P(to)<P(oc.from)||P(to)>today){toast("Datum vyřízení musí být mezi uplatněním a dneškem.");return}
-    oc.to=to;oc.result=$("c-res").value}
-  else{const from=$("c-from").value;if(!isDate(from)||P(from)>today){toast("Datum uplatnění nemůže být v budoucnu.");return}
-    claims.push({from,to:null,note:$("c-note").value.trim(),result:""})}
-  /* claims are part of the item: save right away so they are not lost if the form is cancelled */
-  const it=findItem(editId);
-  if(it&&!sample){const prev=it.claims;it.claims=claims.map(c=>({...c}));if(!(await persist())){it.claims=prev;return}render()}
-  $("csheet").hidden=true;renderClaims();toast(oc?"Reklamace uzavřená":"Reklamace zapsaná");
+  const it=findItem(editId);if(!it||!cw)return;
+  const from=$("c-from").value,sent=$("c-sent").value,conf=$("c-conf").value,ext=$("c-ext").value,closed=$("c-closed").checked,to=$("c-to").value;
+  if(!isDate(from)||P(from)>today){toast("Datum uplatnění nemůže být v budoucnu.");return}
+  for(const[v,l]of[[sent,"odeslání"],[conf,"potvrzení"]])if(v&&(!isDate(v)||P(v)>today)){toast(`Datum ${l} nemůže být v budoucnu.`);return}
+  if(ext&&(!isDate(ext)||ext<from)){toast("Dohodnutá lhůta musí být po datu uplatnění.");return}
+  if(closed&&(!isDate(to)||to<from||P(to)>today)){toast("Datum vyřízení musí být mezi uplatněním a dneškem.");return}
+  const result=closed?$("c-res").value:"";
+  let refund="";
+  if(closed&&(result==="Vráceny peníze"||result==="Sleva")){const r=parsePrice($("c-refund").value);if(r===null){toast("Částka musí být číslo.");return}refund=r}
+  const o=cw.orig,isNew=cw.isNew;
+  const c={id:cw.id,from,to:closed?to:null,result,note:clip($("c-note").value.trim(),300),protocol:clip($("c-protocol").value.trim(),60),
+    sent:sent||"",confirmed:conf||"",extendedTo:ext||"",atSeller:$("c-atseller").checked,refund,log:cw.log.slice(),files:cw.files.slice()};
+  /* status history is written automatically from what changed */
+  const L=(d,t)=>c.log.push({d,t,k:"s"}),t0=iso(today);
+  if(isNew)L(from,"Reklamace uplatněna");
+  if(c.sent&&c.sent!==(o.sent||""))L(c.sent,"Odesláno prodejci");
+  if(c.confirmed&&c.confirmed!==(o.confirmed||""))L(c.confirmed,"Prodejce potvrdil přijetí");
+  if(c.protocol&&c.protocol!==(o.protocol||""))L(t0,`Číslo reklamace: ${c.protocol}`);
+  if(c.extendedTo&&c.extendedTo!==(o.extendedTo||""))L(t0,`Dohodnutá lhůta do ${fmtD(c.extendedTo)}`);
+  if(!isNew&&c.atSeller!==o.atSeller)L(t0,c.atSeller?"Věc předána prodejci":"Věc je zpět u mě");
+  if(c.to&&(!o.to||o.result!==c.result||o.to!==c.to))L(c.to,`Vyřízeno: ${c.result}${refund!==""?` (${kc(refund)})`:""}`);
+  if(!c.to&&o.to)L(t0,"Reklamace znovu otevřena");
+  const autoRet=c.result==="Vráceny peníze"&&o.result!=="Vráceny peníze"&&!it.returned;
+  const claims=isNew?[...it.claims,c]:it.claims.map(x=>x.id===c.id?c:x);
+  /* claims are part of the item: saved right away so they are not lost if the receipt form is cancelled */
+  if(!(await commit(items.map(x=>x.id===it.id?{...x,claims,returned:x.returned||autoRet}:x))))return;
+  if(autoRet){const clean=formState()===formSnap;$("f-returned").checked=true;if(clean)formSnap=formState()}
+  closeClaim();renderClaims();render();
+  toast(autoRet?"Reklamace uložená. Věc jsem označil jako vrácenou.":isNew?"Reklamace zapsaná":"Reklamace uložená");
+};
+$("c-del").onclick=async()=>{
+  if(!cw||!armed($("c-del"),"Smazat","Klepni znovu pro smazání"))return;
+  const id=cw.id;
+  if(await commit(items.map(x=>x.id===editId?{...x,claims:x.claims.filter(c=>c.id!==id)}:x))){closeClaim();renderClaims();render();toast("Reklamace smazána")}
 };
 
-/* ---------- backup ---------- */
-const backupData=pretty=>JSON.stringify({app:"zaruky",v:3,saved:new Date().toISOString(),items},null,pretty?1:0);
+/* ======================================================================
+   calendar (.ics): the app cannot notify while closed, the phone's calendar can
+   ====================================================================== */
+const icsEsc=s=>String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n");
+const icsDay=d=>`${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}`;
+/* lines longer than 75 bytes must be folded (UTF-8 aware) */
+function fold(l){
+  const enc=new TextEncoder();if(enc.encode(l).length<=75)return l;
+  const parts=[];let cur="",n=0;
+  for(const ch of l){const b=enc.encode(ch).length;if(n+b>(parts.length?74:75)){parts.push(cur);cur="";n=0}cur+=ch;n+=b}
+  parts.push(cur);return parts.join("\r\n ");
+}
+/* all-day event; each alarm fires at 9:00, N days before (0 = on the day) */
+function icsEvent(uid,date,summary,desc,alarms){
+  const next=new Date(date);next.setDate(next.getDate()+1);
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const L=["BEGIN:VEVENT",`UID:${uid}@zaruky`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${icsDay(date)}`,`DTEND;VALUE=DATE:${icsDay(next)}`,`SUMMARY:${icsEsc(summary)}`,`DESCRIPTION:${icsEsc(desc)}`,"TRANSP:TRANSPARENT"];
+  for(const n of alarms)L.push("BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:${icsEsc(summary)}`,`TRIGGER:${n===0?"PT9H":n===1?"-PT15H":`-P${n-1}DT15H`}`,"END:VALARM");
+  L.push("END:VEVENT");return L;
+}
+function buildIcs(list,kinds){
+  const ev=[];
+  const add=(uid,date,sum,desc,alarms)=>{const dd=diffDays(date,today);if(dd<0)return;ev.push(...icsEvent(uid,date,sum,desc,alarms.filter(n=>dd-n>=0)))};
+  for(const it of list){
+    const x=info(it);
+    if(!it.returned&&x.left>=0){
+      if(kinds.has("w"))add("w-"+it.id,x.end,`Konec záruky: ${it.name}`,`Záruka na ${it.name}${it.shop?` (${it.shop})`:""} končí ${fmtD(x.end)}. Pokud má věc vadu, reklamuj ji do tohoto dne.`,[90,30,7,1]);
+      if(kinds.has("k")&&x.left>30)add("k-"+it.id,addDays(iso(x.end),-30),`Zkontroluj: ${it.name}`,`Za 30 dní (${fmtD(x.end)}) končí záruka. Vyzkoušej, jestli všechno funguje, a případnou reklamaci podej včas.`,[0]);
+    }
+    const oc=openClaim(it);
+    if(oc&&kinds.has("c")){const s=claimStatus(it,oc);if(s.dl)add("c-"+oc.id,s.dl,`Lhůta reklamace: ${it.name}`,`Prodejce má reklamaci${oc.protocol?` č. ${oc.protocol}`:""} vyřídit do ${fmtD(s.dl)}.`,[3,1,0])}
+  }
+  if(!ev.length)return null;
+  return["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Zaruky//CS","CALSCALE:GREGORIAN","METHOD:PUBLISH",...ev,"END:VCALENDAR"].map(fold).join("\r\n")+"\r\n";
+}
+let mCtx=null;
+function openRemind(it){
+  if(sample){toast("Ukázková data do Kalendáře nepřidám. Přidej vlastní účtenku.");return}
+  const opts=[];
+  if(it){
+    const x=info(it),oc=openClaim(it);
+    if(!it.returned&&x.left>=0){
+      opts.push(["w",`Konec záruky ${fmtD(x.end)}`,"Upozornění 90, 30, 7 a 1 den předem"]);
+      if(x.left>30)opts.push(["k",`Kontrola věci ${fmtD(addDays(iso(x.end),-30))}`,"Měsíc před koncem záruky: vyzkoušej věc a případnou vadu reklamuj včas"]);
+    }
+    if(oc){const s=claimStatus(it,oc);if(s.dl&&s.dd>=0)opts.push(["c",`Lhůta pro vyřízení reklamace ${fmtD(s.dl)}`,"Upozornění 3 dny a 1 den předem a v den lhůty"])}
+  }else{
+    const act=items.filter(i=>!i.returned&&info(i).left>=0);
+    const cl=items.filter(i=>{const oc=openClaim(i);if(!oc)return false;const s=claimStatus(i,oc);return s.dl&&s.dd>=0});
+    if(act.length)opts.push(["w",`Konce záruk (${act.length})`,"Upozornění 90, 30, 7 a 1 den předem"],["k","Kontrola měsíc před koncem záruky","Jedna připomínka u každé věci"]);
+    if(cl.length)opts.push(["c",`Lhůty reklamací (${cl.length})`,"Upozornění 3 dny a 1 den předem a v den lhůty"]);
+  }
+  if(!opts.length){toast("Žádný budoucí termín k uložení.");return}
+  mCtx={list:it?[it]:items};
+  $("mtitle").textContent=it?"Připomínky do Kalendáře":"Termíny do Kalendáře";
+  $("m-body").innerHTML=`<div class="opts">${opts.map(([k,t,s])=>`<label class="opt"><input type="checkbox" value="${k}"${k==="k"&&!it?"":" checked"}><span>${esc(t)}<small>${esc(s)}</small></span></label>`).join("")}</div>`;
+  openSub("msheet","mpanel");
+}
+$("m-cancel").onclick=()=>closeSub("msheet");
+$("msheet").addEventListener("click",e=>{if(e.target.id==="msheet")closeSub("msheet")});
+$("m-go").onclick=async()=>{
+  if(!mCtx)return;
+  const kinds=new Set([...$("m-body").querySelectorAll("input:checked")].map(i=>i.value));
+  if(!kinds.size){toast("Vyber aspoň jeden termín.");return}
+  const ics=buildIcs(mCtx.list,kinds);
+  if(!ics){toast("Žádný budoucí termín k uložení.");return}
+  const r=await deliverFile(new Blob([ics],{type:"text/calendar;charset=utf-8"}),mCtx.list.length===1?"zaruka-termin.ics":"zaruky-terminy.ics",isStandalone());
+  if(r==="failed"){toast("Soubor s termíny se nepodařilo vytvořit.");return}
+  if(r==="needtap"){toast("Klepni prosím ještě jednou.");return}
+  if(r==="aborted")return;
+  closeSub("msheet");toast("Otevři soubor a potvrď přidání do Kalendáře.");
+};
+
+/* ======================================================================
+   backup, restore, CSV
+   ====================================================================== */
+/* share sheet (iPhone: "Uložit do Souborů") when available, otherwise a normal download.
+   "needtap": the browser refused the share sheet because the tap was too long ago (the file took a while to
+   prepare); the caller then asks for one more tap, which counts as a fresh user action. */
+async function deliverFile(blob,name,preferShare){
+  if(preferShare){
+    try{const f=new File([blob],name,{type:blob.type});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return"shared"}}
+    catch(e){if(e&&e.name==="AbortError")return"aborted";if(e&&e.name==="NotAllowedError")return"needtap"}
+  }
+  try{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);return"downloaded"}
+  catch(e){return"failed"}
+}
+function counts(list){
+  let img=0,pdf=0,claims=0,cf=0,bytes=0;
+  for(const it of list){for(const d of it.docs){d.kind==="pdf"?pdf++:img++;bytes+=d.size||0}for(const c of it.claims){claims++;for(const f of c.files){cf++;bytes+=f.size||0}}}
+  return{img,pdf,claims,cf,bytes};
+}
+const plItems=n=>plural(n,"položka","položky","položek");
+/* built piece by piece into a Blob, so hundreds of documents never have to sit in one giant string */
+async function buildBackup(){
+  const parts=['{"app":"zaruky","v":4,"saved":',JSON.stringify(new Date().toISOString()),',"items":['];
+  let missing=0;
+  const withData=async list=>{const out=[];for(const d of list){const data=await getData(d.id,true);if(data)out.push({kind:d.kind,name:d.name,size:d.size,data});else missing++}return out};
+  for(let i=0;i<items.length;i++){
+    const it=items[i],docs=await withData(it.docs),claims=[];
+    for(const c of it.claims)claims.push({...c,files:await withData(c.files)});
+    parts.push((i?",":"")+JSON.stringify({...it,docs,claims}));
+  }
+  parts.push("]}");
+  return{blob:new Blob(parts,{type:"application/json"}),missing};
+}
+async function renderBackupStats(){
+  const el=$("b-stats");
+  if(sample||!items.length){el.textContent="Zatím nemáš žádná vlastní data.";return}
+  const c=counts(items);
+  let t=`${plItems(items.length)}, ${plural(c.img,"fotka","fotky","fotek")}, ${c.pdf} PDF, ${plural(c.claims,"reklamace","reklamace","reklamací")}${c.cf?` (${plural(c.cf,"příloha","přílohy","příloh")})`:""}. Soubor zálohy bude mít asi ${fmtSize(c.bytes*4/3+items.length*800)}.`;
+  if(meta.lastBackup)t+=` Poslední záloha ${fmtD(meta.lastBackup)}.`;
+  el.textContent=t;
+  try{if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();const p=navigator.storage.persisted?await navigator.storage.persisted():false;
+    if(e&&e.usage)el.textContent=t+` Prohlížeč pro aplikaci využívá ${fmtSize(e.usage)}${p?", data jsou chráněná před automatickým mazáním":""}.`}}catch(e){}
+}
 $("backup").onclick=()=>{
-  const data=sample?"":backupData();
-  $("b-size").textContent=sample||!items.length?"Zatím nemáš žádná vlastní data.":`${items.length} položek, ${Math.max(1,Math.round(data.length/1024))} kB${items.some(i=>i.photos.length||i.pdfs.length)?" včetně fotek a PDF":""}.${meta.lastBackup?` Poslední záloha ${fmtD(meta.lastBackup)}.`:""}`;
-  $("b-text").value="";disarm($("b-restore"),"Obnovit");resetFile();$("bsheet").hidden=false;lock(true,$("bpanel"));
+  readyBackup=null;$("b-save").textContent=B_LABEL;
+  $("b-text").value="";$("b-confirm").hidden=true;resetPreview();renderBackupStats();
+  $("bsheet").hidden=false;lock(true,$("bpanel"));
 };
 $("b-close").onclick=closeSheets;
-async function markBackup(){meta.lastBackup=iso(today);await Store.set(META,meta);renderBackupNote()}
-$("b-copy").onclick=()=>{
-  if(sample||!items.length){toast("Zatím není co zálohovat.");return}
-  const data=backupData();
-  const fallback=()=>{$("b-text").value=data;$("b-text").focus();$("b-text").select();toast("Zálohu jsem označil. Zkopíruj ji ručně a vlož do Poznámek.");markBackup()};
-  try{navigator.clipboard.writeText(data).then(()=>{toast("Záloha zkopírovaná. Vlož ji do Poznámek.");markBackup()},fallback)}catch(e){fallback()}
-};
-/* ---------- backup file (JSON) ---------- */
-let pendingFile=null;
-function parseBackup(text){
-  let d;try{d=JSON.parse(String(text).replace(/^\uFEFF/,"").trim())}catch(e){return null}
-  const arr=Array.isArray(d)?d:d&&d.app==="zaruky"&&Array.isArray(d.items)?d.items:null;
-  if(!arr||!arr.every(x=>x&&typeof x.name==="string"&&x.name.trim()&&isDate(x.date)))return null;
-  return arr;
+$("bsheet").addEventListener("click",e=>{if(e.target.id==="bsheet")closeSheets()});
+async function markBackup(){meta.lastBackup=iso(today);await Store.kvSet(META,meta);renderBackupNote();renderBackupStats()}
+/* a share sheet that closed or a started download do not prove the file was saved, so the user confirms it */
+function askSaved(t){$("b-confirm-t").textContent=t;$("b-confirm").hidden=false}
+$("b-yes").onclick=()=>{$("b-confirm").hidden=true;markBackup();toast("Záloha je zaznamenaná.")};
+$("b-no").onclick=()=>{$("b-confirm").hidden=true;toast("Zkus to znovu. Na iPhonu v nabídce vyber Uložit do Souborů.")};
+let readyBackup=null;
+const B_LABEL="Uložit zálohu do souboru";
+async function sendBackup(b){
+  const r=await deliverFile(b.blob,`zaruky-zaloha-${iso(today)}.json`,true);
+  if(r==="needtap"){readyBackup=b;$("b-save").textContent=`Záloha je připravená (${fmtSize(b.blob.size)}), klepni pro uložení`;return}
+  readyBackup=null;$("b-save").textContent=B_LABEL;
+  if(r==="aborted")return;
+  if(r==="failed"){toast("Soubor se nepodařilo uložit. Zkus to znovu.");return}
+  askSaved(`Je záloha opravdu uložená (${fmtSize(b.blob.size)})? Zkontroluj soubor v aplikaci Soubory nebo ve Stažených.`);
 }
-function resetFile(){pendingFile=null;$("b-file").value="";$("b-file-info").hidden=true;$("b-file-apply").hidden=true;disarm($("b-file-apply"),"Nahradit data zálohou")}
 $("b-save").onclick=async()=>{
+  if(readyBackup){sendBackup(readyBackup);return}
   if(sample||!items.length){toast("Zatím není co zálohovat.");return}
-  const name=`zaruky-zaloha-${iso(today)}.json`;
-  const json=backupData(true);
-  const blob=new Blob([json],{type:"application/json"});
-  /* iPhone: share sheet with "Uložit do Souborů"; elsewhere a normal download */
-  try{
-    const file=new File([blob],name,{type:"application/json"});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      await navigator.share({files:[file],title:name});
-      toast("Záloha uložená.");markBackup();return;
-    }
-  }catch(e){if(e&&e.name==="AbortError")return}
-  try{
-    const url=URL.createObjectURL(blob),a=document.createElement("a");
-    a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),4000);
-    toast(`Stahuji ${name}`);markBackup();
-  }catch(e){toast("Soubor se nepodařilo uložit. Použij zálohu přes schránku.")}
+  const btn=$("b-save");btn.disabled=true;btn.textContent="Připravuji zálohu…";
+  let b;
+  try{b=await buildBackup()}catch(e){btn.textContent=B_LABEL;toast("Zálohu se nepodařilo připravit, zařízení má asi málo paměti.");return}
+  finally{btn.disabled=false}
+  btn.textContent=B_LABEL;
+  if(b.missing)toast(`${plural(b.missing,"doklad","doklady","dokladů")} se nepodařilo načíst, v záloze chybí.`);
+  sendBackup(b);
 };
+$("b-copy").onclick=async()=>{
+  if(sample||!items.length){toast("Zatím není co zálohovat.");return}
+  const c=counts(items);if(c.bytes>2.5*1048576){toast("S doklady je záloha moc velká pro schránku. Ulož ji jako soubor.");return}
+  let text;try{text=await (await buildBackup()).blob.text()}catch(e){toast("Zálohu se nepodařilo připravit.");return}
+  /* if the clipboard is refused (Safari after a delay), the text is selected in the field below for manual copying */
+  const fallback=()=>{$("b-text").value=text;$("b-text").focus();$("b-text").select();askSaved("Zálohu jsem označil v poli níže. Zkopíruj ji a vlož do Poznámek. Je uložená?")};
+  try{await navigator.clipboard.writeText(text);askSaved("Záloha je ve schránce. Vlož ji do Poznámek a potvrď, že je uložená.")}catch(e){fallback()}
+};
+$("b-csv").onclick=async()=>{
+  if(sample||!items.length){toast("Zatím nemáš žádné nákupy.");return}
+  const KIND={new:"nové",used:"použité",business:"na firmu"};
+  const q=v=>{let s=String(v??"");if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[";\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s};
+  const num=v=>v===""||v==null?"":String(v).replace(".",",");
+  const head=["Věc","Kategorie","Obchod","Cena (Kč)","Vráceno (Kč)","Datum nákupu","Převzato","Druh nákupu","Záruka (měsíce)","Konec záruky","Prodlouženo o dní","Stav","Číslo dokladu","Reklamace","Poznámka","Fotky","PDF"];
+  const rows=items.map(it=>{const x=info(it),ni=it.docs.filter(d=>d.kind==="img").length;
+    return[q(it.name),q(it.cat),q(it.shop),num(it.price),num(it.returned?it.price:refundSum(it)||""),it.date,it.received,KIND[it.kind],it.months,iso(x.end),x.ext||"",q(x.txt),q(it.order),
+      q(it.claims.map(c=>`${c.from}${c.to?"–"+c.to+" "+(c.result||"vyřízeno"):" probíhá"}${c.protocol?" č. "+c.protocol:""}`).join(" | ")),q(it.note),ni,it.docs.length-ni].join(";")});
+  const csv="\uFEFF"+[head.join(";"),...rows].join("\r\n")+"\r\n";
+  const r=await deliverFile(new Blob([csv],{type:"text/csv;charset=utf-8"}),`zaruky-nakupy-${iso(today)}.csv`,true);
+  if(r==="failed")toast("CSV se nepodařilo uložit.");
+  if(r==="needtap")toast("Klepni prosím ještě jednou.");
+};
+/* ---------- restore: always check first, then replace after a second tap ---------- */
+let pendingRestore=null;
+function resetPreview(){pendingRestore=null;$("b-file").value="";$("b-preview").hidden=true;$("b-apply").hidden=true;disarm($("b-apply"),"Nahradit data zálohou")}
+function inspectBackup(text){
+  let d;try{d=JSON.parse(String(text).replace(/^\uFEFF/,"").trim())}catch(e){return{err:"Soubor není platná záloha. Je poškozený nebo neúplný."}}
+  const arr=Array.isArray(d)?d:d&&d.app==="zaruky"&&Array.isArray(d.items)?d.items:null;
+  if(!arr)return{err:"Tohle není záloha této aplikace."};
+  if(!arr.length)return{err:"Záloha je prázdná, nic neobnovím."};
+  const r=normalizeAll(arr,true);
+  if(!r.items.length)return{err:"V záloze není žádná platná položka."};
+  const saved=d&&!Array.isArray(d)&&typeof d.saved==="string"&&!isNaN(Date.parse(d.saved))?new Date(d.saved):null;
+  return{...r,saved,total:arr.length};
+}
+function showPreview(r,src){
+  if(r.err){resetPreview();toast(r.err);return}
+  pendingRestore=r;
+  const c=counts(r.items),st=r.stats,warn=[];
+  if(st.bad)warn.push(`${plural(st.bad,"poškozenou položku","poškozené položky","poškozených položek")} přeskočím`);
+  if(st.badFiles)warn.push(`${plural(st.badFiles,"neplatnou přílohu","neplatné přílohy","neplatných příloh")} vynechám`);
+  if(st.dup)warn.push(`${plural(st.dup,"duplicitní označení","duplicitní označení","duplicitních označení")} opravím`);
+  const el=$("b-preview");el.className="note "+(warn.length?"w":"i");el.hidden=false;
+  el.textContent=`${src}${r.saved?` z ${fmtD(r.saved)}`:""}: ${plItems(r.items.length)}, ${plural(c.img,"fotka","fotky","fotek")}, ${c.pdf} PDF, ${plural(c.claims,"reklamace","reklamace","reklamací")}${c.cf?` (${plural(c.cf,"příloha","přílohy","příloh")})`:""}.${warn.length?` Pozor: ${warn.join(", ")}.`:""}${!c.img&&!c.pdf&&!c.cf?" Záloha neobsahuje žádné doklady.":""} Teď máš ${plItems(sample?0:items.length)}, ty se nahradí.`;
+  $("b-apply").hidden=false;disarm($("b-apply"),"Nahradit data zálohou");
+}
 $("b-file").onchange=e=>{
   const f=e.target.files&&e.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{
-    const arr=parseBackup(r.result);
-    if(!arr){resetFile();toast("Tenhle soubor není záloha této aplikace.");return}
-    pendingFile=arr;
-    const pl=n=>`${n} ${n===1?"položka":n>=2&&n<=4?"položky":"položek"}`;
-    $("b-file-info").textContent=`${f.name}: ${pl(arr.length)}. Teď máš ${pl(sample?0:items.length)}, ty se nahradí.`;
-    $("b-file-info").hidden=false;$("b-file-apply").hidden=false;
-  };
-  r.onerror=()=>{resetFile();toast("Soubor se nepodařilo přečíst.")};
+  r.onload=()=>showPreview(inspectBackup(r.result),f.name);
+  r.onerror=()=>{resetPreview();toast("Soubor se nepodařilo přečíst.")};
   r.readAsText(f);
 };
-$("b-file-apply").onclick=async()=>{
-  if(!pendingFile)return;
-  if(!armed($("b-file-apply"),"Nahradit data zálohou","Klepni znovu pro potvrzení"))return;
-  if(await restoreFrom(pendingFile)){resetFile();closeSheets();render();toast("Obnoveno ze souboru")}
+$("b-check").onclick=()=>{const t=$("b-text").value.trim();if(!t){toast("Nejdřív vlož zkopírovanou zálohu.");return}showPreview(inspectBackup(t),"Vložená záloha")};
+$("b-apply").onclick=async()=>{
+  if(!pendingRestore)return;
+  if(!armed($("b-apply"),"Nahradit data zálohou","Klepni znovu pro potvrzení"))return;
+  const r=pendingRestore,prevS=sample,prevP=new Map(pendingFiles);
+  pendingFiles.clear();for(const[k,v]of r.files)pendingFiles.set(k,v);sample=false;
+  /* explicit, double-confirmed replace: allowed even when loading failed (it is the way out of that state) */
+  if(await commit(r.items,true)){loadFailed=false;resetPreview();closeSheets();render();toast("Obnoveno ze zálohy")}
+  else{sample=prevS;pendingFiles.clear();for(const[k,v]of prevP)pendingFiles.set(k,v)}
 };
-$("b-restore").onclick=async()=>{
-  const arr=parseBackup($("b-text").value);if(!arr){toast("Tohle není platná záloha.");return}
-  if(!armed($("b-restore"),"Obnovit",`Přepsat ${sample?0:items.length} → ${arr.length}?`))return;
-  if(await restoreFrom(arr)){closeSheets();render();toast("Obnoveno")}
-};
-/* explicit, double-confirmed replace: allowed even when loading failed (it is the way out of that state) */
-async function restoreFrom(arr){
-  const prev=items,prevS=sample;items=arr.map(normalize);sample=false;
-  if(await persist(true)){loadFailed=false;return true}
-  items=prev;sample=prevS;return false;
-}
 
-/* ---------- keep "today" current if the app stays open overnight ---------- */
-document.addEventListener("visibilitychange",()=>{if(!document.hidden){const old=today.getTime();setToday();if(today.getTime()!==old)render()}});
-
-/* ---------- boot ---------- */
+/* ======================================================================
+   boot
+   ====================================================================== */
+/* keep "today" current if the app stays open overnight; pick up changes made in another window */
+document.addEventListener("visibilitychange",async()=>{
+  if(document.hidden)return;
+  const old=today.getTime();setToday();
+  if(!loadFailed&&!sample&&!anySheetOpen()){try{if(await Store.peekRev()>rev){await reloadFromStore();return}}catch(e){}}
+  if(today.getTime()!==old)render();
+});
 /* home-screen shortcuts: ?view=over opens the overview, ?add=1 opens a new entry */
 let openAddOnBoot=false;
 try{const q=new URLSearchParams(location.search);if(q.get("view")==="over")view="over";if(q.get("view")==="list")view="list";if(q.has("add")){view="list";openAddOnBoot=true}
@@ -887,12 +1586,20 @@ try{const q=new URLSearchParams(location.search);if(q.get("view")==="over")view=
   if(q.has("add")||q.has("view"))history.replaceState(null,"",location.pathname+location.hash)}catch(e){}
 $("reload").onclick=()=>location.reload();
 (async()=>{
-  let v,m;
-  try{v=await Store.get(KEY)}catch(e){loadFailed=true}
-  if(!loadFailed)try{m=await Store.get(META)}catch(e){}
-  if(m&&typeof m==="object")meta={lastBackup:isDate(m.lastBackup)?m.lastBackup:null};
-  if(loadFailed){items=[];sample=false}
-  else if(Array.isArray(v)){items=v.filter(x=>x&&isDate(x.date)).map(normalize)}else{items=SAMPLE.map(normalize);sample=true}
+  let res=null;
+  try{res=await Store.load()}catch(e){loadFailed=true}
+  if(!loadFailed){try{const m=await Store.kvGet(META);if(m&&typeof m==="object")meta={lastBackup:isDate(m.lastBackup)?m.lastBackup:null}}catch(e){}}
+  if(loadFailed)items=[];
+  else if(Array.isArray(res.items)){
+    const r=normalizeAll(res.items,false);items=r.items;rev=res.rev;
+    /* data from older versions (photos and PDFs inside the list, no revision yet) is converted right away in one
+       atomic step. If anything could not be taken over, the original record is kept aside untouched as well. */
+    if(r.files.size||(!res.rev&&res.items.length)){
+      for(const[k,v]of r.files)pendingFiles.set(k,v);
+      const keep=r.stats.bad||r.stats.badFiles?[["zaruky-legacy-"+iso(today),res.items]]:null;
+      if(await persist(false,keep)!=="ok")toast("Data se zatím nepodařilo převést do nového úložiště. Zkusím to znovu při dalším uložení.");
+    }
+  }else{items=normalizeAll(SAMPLE,false).items;sample=true;rev=res.rev}
   render();
   if(openAddOnBoot&&!loadFailed)openForm(null);
 })();
