@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Záruky a účtenky</title>
+<meta name="theme-color" content="#f3f4f2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Záruky">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column of receipt strips sorted by warranty end; add/edit, claim and backup in bottom sheets */
+:root{
+  --bg:#f3f4f2; --paper:#ffffff; --fg:#1d2421; --muted:#5f6964; --line:#dde1de;
+  --accent:#1f6f5c; --accent-fg:#ffffff;
+  --ok:#2e7d4f; --warn:#9a5c00; --bad:#b3261e; --info:#2f55b8;
+  --okbg:#e6f2ea; --warnbg:#fbf0dc; --badbg:#f8e3e1; --infobg:#e5ebf8;
+  --scrim:rgba(10,20,16,.5);
+  --body:"Figtree",system-ui,-apple-system,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917; --paper:#1d2421; --fg:#e8ece9; --muted:#9aa49f; --line:#2f3834;
+  --accent:#5cc2a6; --accent-fg:#0d1513;
+  --ok:#7fd3a0; --warn:#f0b35a; --bad:#f2938c; --info:#9db6f5;
+  --okbg:#1f3328; --warnbg:#3a2e17; --badbg:#3d2120; --infobg:#1f2a44; --scrim:rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --paper:#1d2421; --fg:#e8ece9; --muted:#9aa49f; --line:#2f3834;
+  --accent:#5cc2a6; --accent-fg:#0d1513;
+  --ok:#7fd3a0; --warn:#f0b35a; --bad:#f2938c; --info:#9db6f5;
+  --okbg:#1f3328; --warnbg:#3a2e17; --badbg:#3d2120; --infobg:#1f2a44; --scrim:rgba(0,0,0,.6); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+.wrap{max-width:640px;margin:0 auto;padding-block:20px 110px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+header>div{min-width:0}
+h1{font-size:1.6rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;font-size:.9rem;font-variant-numeric:tabular-nums}
+.ghost{font:600 .85rem var(--body);border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:8px;padding:8px 12px;cursor:pointer;white-space:nowrap;position:relative}
+.ghost.due::after{content:"";position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--warn);border:2px solid var(--bg)}
+.sum{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:.78rem;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.list{display:flex;flex-direction:column;gap:10px}
+.item{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;cursor:pointer}
+.item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.name{font-weight:600;overflow-wrap:anywhere}
+.meta{grid-column:1/-1;color:var(--muted);font-family:var(--mono);font-size:.78rem;display:flex;gap:4px 12px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.claimline{grid-column:1/-1;font-size:.82rem;font-weight:600;padding:6px 10px;border-radius:8px;margin-top:4px}
+.pill{font-size:.75rem;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;align-self:start}
+.ok{background:var(--okbg);color:var(--ok)} .warn{background:var(--warnbg);color:var(--warn)} .bad{background:var(--badbg);color:var(--bad)} .info{background:var(--infobg);color:var(--info)}
+.bar{grid-column:1/-1;height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%}
+.bar.ok i{background:var(--ok)} .bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
+.note{font-size:.82rem;padding:9px 12px;border-radius:8px;margin:0}
+.note.w{color:var(--warn);background:var(--warnbg)}
+.note.i{color:var(--info);background:var(--infobg)}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+.fab{position:fixed;right:max(16px,calc(16px + env(safe-area-inset-right,0px)));bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--accent-fg);border:0;border-radius:999px;padding:14px 20px;font:600 1rem var(--body);box-shadow:0 6px 18px rgba(0,0,0,.2);cursor:pointer;z-index:5}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.88rem;z-index:40;max-width:calc(100% - 32px);text-align:center}
+.sheet{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.panel{background:var(--paper);width:100%;max-width:640px;max-height:92%;overflow:auto;-webkit-overflow-scrolling:touch;border-radius:16px 16px 0 0;padding-block:18px calc(18px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.panel h2{margin:0;font-size:1.2rem}
+.panel h4{margin:6px 0 0;font-size:.78rem;font-family:var(--mono);font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.panel p{margin:0;font-size:.88rem;color:var(--muted)}
+label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted);font-weight:500;min-width:0}
+/* 16px prevents iOS from zooming into fields */
+input,textarea,select{font-family:var(--body);font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;width:100%;min-width:0;-webkit-appearance:none;appearance:none}
+input[type="date"]{min-height:44px}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
+textarea{resize:vertical}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:600 .95rem var(--body);border-radius:10px;padding:11px 16px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);flex:1}
+.btn.del{color:var(--bad)}
+.btn.armed{background:var(--bad);color:var(--paper);border-color:var(--bad)}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.thumb{position:relative;width:76px;height:76px;flex:none}
+.thumb img{width:100%;height:100%;border-radius:8px;border:1px solid var(--line);object-fit:cover;background:var(--bg);cursor:zoom-in;display:block}
+.thumb button{position:absolute;top:-7px;right:-7px;width:26px;height:26px;border-radius:50%;border:2px solid var(--paper);background:var(--bad);color:#fff;font:700 .9rem/1 var(--body);cursor:pointer;padding:0}
+.file-btn{position:relative;overflow:hidden;width:76px;height:76px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.78rem;padding:6px;border-style:dashed}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.claims{display:flex;flex-direction:column;gap:6px}
+.claim{font-size:.85rem;border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.claim b{font-weight:600}
+.claim span{color:var(--muted);overflow-wrap:anywhere}
+.viewer{position:fixed;inset:0;background:#000;z-index:30;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.viewer button{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));font:600 .95rem var(--body);background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:999px;padding:9px 14px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>Záruky a účtenky</h1><p class="sub" id="sub">Načítám…</p></div>
+    <button class="ghost" id="backup" type="button">Záloha</button>
+  </header>
+  <div class="sum" id="filters"></div>
+  <input id="q" type="search" placeholder="Hledat věc, obchod nebo poznámku…" autocomplete="off">
+  <p id="sampleNote" class="note w" hidden>Ukázková data. Po uložení první vlastní účtenky zmizí.</p>
+  <p id="backupNote" class="note w" hidden></p>
+  <div class="list" id="list"></div>
+</div>
+<button class="fab" id="add" type="button">+ Přidat účtenku</button>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<div class="sheet" id="sheet" hidden>
+  <form class="panel" id="form" autocomplete="off">
+    <h2 id="ftitle">Nová účtenka</h2>
+    <label>Co jsi koupil<input id="f-name" required maxlength="120" placeholder="např. Pračka Bosch"></label>
+    <div class="row">
+      <label>Obchod<input id="f-shop" maxlength="60" placeholder="Alza"></label>
+      <label>Cena (Kč)<input id="f-price" inputmode="decimal" placeholder="0"></label>
+    </div>
+    <div class="row">
+      <label>Datum nákupu<input id="f-date" type="date" required></label>
+      <label>Záruka<select id="f-months">
+        <option value="6">6 měsíců</option><option value="12">12 měsíců</option>
+        <option value="24">24 měsíců</option><option value="36">36 měsíců</option>
+        <option value="48">48 měsíců</option><option value="60">60 měsíců</option></select></label>
+    </div>
+    <p class="note i" id="f-presume" hidden></p>
+    <label>Číslo objednávky / dokladu<input id="f-order" maxlength="60" placeholder="Najdeš na účtence nebo v e-mailu"></label>
+    <label>Poznámka<textarea id="f-note" rows="2" maxlength="500" placeholder="Sériové číslo, kde je krabice…"></textarea></label>
+    <h4>Fotky (účtenka, záruční list, štítek)</h4>
+    <div class="thumbs" id="thumbs"></div>
+    <div id="claimBox" hidden>
+      <h4>Reklamace</h4>
+      <div class="claims" id="claims"></div>
+      <div class="btns" style="margin-top:8px"><button type="button" class="btn" id="f-claim">Zahájit reklamaci</button></div>
+    </div>
+    <div class="btns">
+      <button type="button" class="btn del" id="f-del" hidden>Smazat</button>
+      <button type="button" class="btn" id="f-cancel">Zrušit</button>
+      <button type="submit" class="btn pri">Uložit</button>
+    </div>
+  </form>
+</div>
+
+<div class="sheet" id="csheet" hidden>
+  <form class="panel" id="cform">
+    <h2 id="ctitle">Reklamace</h2>
+    <div id="c-new">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label>Reklamaci jsem uplatnil<input id="c-from" type="date" required></label>
+        <label>Co je za vadu<textarea id="c-note" rows="2" maxlength="300" placeholder="Nejde zapnout, číslo reklamace…"></textarea></label>
+        <p>Obchod musí reklamaci vyřídit do 30 dnů od uplatnění, pokud jste se nedohodli na delší lhůtě.</p>
+      </div>
+    </div>
+    <div id="c-end" hidden>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label>Vyřízeno dne<input id="c-to" type="date"></label>
+        <label>Výsledek<select id="c-res"><option>Opraveno</option><option>Vyměněno</option><option>Vráceny peníze</option><option>Sleva</option><option>Zamítnuto</option></select></label>
+      </div>
+    </div>
+    <div class="btns">
+      <button type="button" class="btn" id="c-cancel">Zrušit</button>
+      <button type="submit" class="btn pri" id="c-save">Uložit</button>
+    </div>
+  </form>
+</div>
+
+<div class="sheet" id="bsheet" hidden>
+  <div class="panel">
+    <h2>Záloha</h2>
+    <p>Data jsou uložená jen v tomto zařízení a nikam se neodesílají. iOS je ale může smazat, třeba při čištění dat webů. Zálohu zkopíruj a vlož si ji do Poznámek.</p>
+    <button class="btn pri" id="b-copy" type="button">Zkopírovat zálohu</button>
+    <p id="b-size"></p>
+    <label>Obnovit ze zálohy<textarea id="b-text" rows="4" placeholder="Sem vlož zkopírovanou zálohu"></textarea></label>
+    <div class="btns">
+      <button class="btn" id="b-close" type="button">Zavřít</button>
+      <button class="btn pri" id="b-restore" type="button">Obnovit</button>
+    </div>
+  </div>
+</div>
+
+<div class="viewer" id="viewer" hidden><img id="v-img" alt="Fotka dokladu"><button type="button" id="v-close">Zavřít</button></div>
+
+<script>
+/* ---------- storage: IndexedDB in this browser only, localStorage as fallback ---------- */
+const KEY="zaruky-v1",META="zaruky-meta";
+const Store={
+  db:null,
+  open(){return new Promise((res,rej)=>{try{const r=indexedDB.open("zaruky",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}})},
+  async get(k){
+    try{this.db=this.db||await this.open();const v=await new Promise((res,rej)=>{const q=this.db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});if(v!==undefined)return v}catch(e){}
+    try{const r=localStorage.getItem(k);if(r)return JSON.parse(r)}catch(e){}
+    return undefined;
+  },
+  async set(k,v){
+    try{this.db=this.db||await this.open();await new Promise((res,rej)=>{const t=this.db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)});try{localStorage.removeItem(k)}catch(e){}return true}catch(e){}
+    try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}
+  }
+};
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+
+/* ---------- dates & formatting ---------- */
+let today;function setToday(){today=new Date();today.setHours(0,0,0,0)}setToday();
+const P=s=>{const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function addMonths(s,m){const d=P(s),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+m);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d}
+const addDays=(s,n)=>{const d=P(s);d.setDate(d.getDate()+n);return d};
+const diffDays=(a,b)=>Math.round((a-b)/864e5);
+const ago=n=>{const d=new Date(today);d.setDate(d.getDate()-n);return iso(d)};
+const fmtD=d=>(typeof d==="string"?P(d):d).toLocaleDateString("cs-CZ",{day:"numeric",month:"numeric",year:"numeric"});
+const kc=n=>(n===""||n==null||isNaN(n))?"":Number(n).toLocaleString("cs-CZ",{maximumFractionDigits:2})+" Kč";
+const parsePrice=s=>{const t=String(s).replace(/\s|Kč/gi,"").replace(",",".");if(!t)return "";if(!/^\d+(\.\d{1,2})?$/.test(t))return null;return parseFloat(t)};
+const days=n=>n===1?"den":n>=2&&n<=4?"dny":"dní";
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $=id=>document.getElementById(id);
+const isDate=s=>typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s);
+const MAX_PHOTOS=4;
+
+const SAMPLE=[
+ {id:"s1",name:"Pračka Bosch Serie 6",shop:"Datart",price:14990,date:ago(400),months:24,note:"",photos:[],claims:[{from:ago(12),to:null,note:"Neždímá"}]},
+ {id:"s2",name:"Sluchátka Sony WH-1000XM5",shop:"Alza",price:7990,date:ago(700),months:24,note:"",photos:[],claims:[]},
+ {id:"s3",name:"Zimní bunda",shop:"Sportisimo",price:3499,date:ago(800),months:24,note:"",photos:[],claims:[]},
+];
+let items=[],sample=false,filter="all",editId=null,photos=[],claims=[],meta={lastBackup:null};
+
+/* older saves had a single `photo` and no claims */
+function normalize(x){
+  const ph=Array.isArray(x.photos)?x.photos.filter(p=>typeof p==="string"&&p.startsWith("data:image/")):(typeof x.photo==="string"&&x.photo.startsWith("data:image/")?[x.photo]:[]);
+  const cl=Array.isArray(x.claims)?x.claims.filter(c=>c&&isDate(c.from)).map(c=>({from:c.from,to:isDate(c.to)?c.to:null,note:String(c.note||""),result:c.result?String(c.result):""})):[];
+  const pr=x.price===""||x.price==null||isNaN(+x.price)?"":+x.price;
+  return{id:String(x.id||"u"+Math.random().toString(36).slice(2)),name:String(x.name||"").slice(0,120),shop:String(x.shop||""),price:pr,date:x.date,
+    months:[6,12,24,36,48,60].includes(+x.months)?+x.months:24,order:String(x.order||""),note:String(x.note||""),photos:ph.slice(0,MAX_PHOTOS),claims:cl};
+}
+const openClaim=it=>it.claims.find(c=>!c.to);
+
+function info(it){
+  const end=addMonths(it.date,it.months),start=P(it.date);
+  const left=diffDays(end,today),total=Math.max(1,diffDays(end,start));
+  const pct=Math.max(0,Math.min(100,(1-left/total)*100));
+  const cls=left<0?"bad":left<=60?"warn":"ok";
+  let txt;
+  if(left<0)txt="Po záruce";
+  else if(left===0)txt="Končí dnes";
+  else if(left<=60)txt=`Zbývá ${left} ${days(left)}`;
+  else{const m=Math.floor(left/30.44);txt=`Ještě ${m} měs.`}
+  const oc=openClaim(it);let claim=null;
+  if(oc){const dl=addDays(oc.from,30),dd=diffDays(dl,today);
+    claim={cls:dd<0?"bad":dd<=7?"warn":"info",txt:dd<0?`Reklamace: obchod nestihl lhůtu (do ${fmtD(dl)}), máš nárok odstoupit nebo žádat slevu`:dd===0?"Reklamace: obchod musí vyřídit dnes":`Reklamace: obchod musí vyřídit do ${fmtD(dl)} (${dd} ${days(dd)})`}}
+  return{end,left,pct,cls,txt,claim};
+}
+function render(){
+  const q=$("q").value.trim().toLowerCase();
+  const all=items.map(it=>({it,...info(it)})).sort((a,b)=>(!!b.claim-!!a.claim)||(a.end-b.end)||a.it.name.localeCompare(b.it.name,"cs"));
+  const n={all:all.length,warn:0,ok:0,bad:0,claim:0};all.forEach(x=>{n[x.cls]++;if(x.claim)n.claim++});
+  const active=all.filter(x=>x.left>=0);
+  const sum=active.reduce((s,x)=>s+(+x.it.price||0),0);
+  $("sub").textContent=!all.length?"Zatím nic nehlídáš":`${active.length} v záruce${sum?` · ${kc(sum)}`:""}${n.claim?` · ${n.claim} v reklamaci`:""}`;
+  const F=[["all","Vše"],["warn","Končí do 60 dní"],["ok","V záruce"],["bad","Po záruce"]];
+  if(n.claim)F.splice(1,0,["claim","V reklamaci"]);
+  if(filter==="claim"&&!n.claim)filter="all";
+  $("filters").innerHTML=F.map(([k,l])=>`<button type="button" class="chip" data-f="${k}" aria-pressed="${filter===k}">${l} ${n[k]}</button>`).join("");
+  $("sampleNote").hidden=!(sample&&items.length);
+  renderBackupNote();
+  const list=all.filter(x=>(filter==="all"||(filter==="claim"?!!x.claim:x.cls===filter))&&(!q||[x.it.name,x.it.shop,x.it.note,x.it.order].join(" ").toLowerCase().includes(q)));
+  if(!list.length){$("list").innerHTML=`<div class="empty">${items.length?"Nic neodpovídá.":"Zatím žádné účtenky. Přidej první tlačítkem dole."}</div>`;return}
+  $("list").innerHTML=list.map(x=>`<div class="item" role="button" tabindex="0" data-id="${esc(x.it.id)}">
+    <span class="name">${esc(x.it.name)}</span><span class="pill ${x.cls}">${x.txt}</span>
+    <span class="meta"><span>${esc(x.it.shop||"—")}</span>${x.it.price!==""?`<span>${kc(x.it.price)}</span>`:""}<span>do ${fmtD(x.end)}</span>${x.it.photos.length?`<span>${x.it.photos.length} ${x.it.photos.length===1?"fotka":x.it.photos.length<5?"fotky":"fotek"}</span>`:""}</span>
+    ${x.claim?`<span class="claimline ${x.claim.cls}">${x.claim.txt}</span>`:""}
+    <span class="bar ${x.cls}"><i style="width:${x.pct.toFixed(1)}%"></i></span></div>`).join("");
+}
+function backupDue(){if(sample||!items.length)return false;if(!meta.lastBackup)return items.length>=3;return diffDays(today,P(meta.lastBackup))>30}
+function renderBackupNote(){
+  const due=backupDue();$("backup").classList.toggle("due",due);
+  $("backupNote").hidden=!due;
+  if(due)$("backupNote").textContent=meta.lastBackup?`Poslední záloha je z ${fmtD(meta.lastBackup)}. Udělej novou přes tlačítko Záloha.`:"Ještě nemáš zálohu. Udělej ji přes tlačítko Záloha, ať o data nepřijdeš.";
+}
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3200)}
+function lock(on){document.documentElement.style.overflow=on?"hidden":""}
+async function persist(){if(sample)return true;const ok=await Store.set(KEY,items);if(!ok)toast("Uložení se nepovedlo. Zkus odebrat některé fotky.");return ok}
+
+/* ---------- confirm-on-second-tap helper ---------- */
+function armed(btn,label,armedLabel){
+  if(btn.dataset.armed==="1"){disarm(btn,label);return true}
+  btn.dataset.armed="1";btn.textContent=armedLabel;btn.classList.add("armed");
+  clearTimeout(btn._t);btn._t=setTimeout(()=>disarm(btn,label),3500);return false;
+}
+function disarm(btn,label){btn.dataset.armed="";btn.textContent=label;btn.classList.remove("armed");clearTimeout(btn._t)}
+
+/* ---------- form ---------- */
+function openForm(it){
+  editId=it?it.id:null;photos=it?it.photos.slice():[];claims=it?it.claims.map(c=>({...c})):[];
+  $("ftitle").textContent=it?"Upravit účtenku":"Nová účtenka";
+  $("f-name").value=it?.name||"";$("f-shop").value=it?.shop||"";$("f-price").value=it&&it.price!==""?String(it.price).replace(".",","):"";
+  $("f-date").value=it?.date||iso(today);$("f-months").value=String(it?.months||24);$("f-order").value=it?.order||"";$("f-note").value=it?.note||"";
+  renderThumbs();renderClaims();updatePresume();
+  $("claimBox").hidden=!it;
+  $("f-del").hidden=!it;disarm($("f-del"),"Smazat");
+  $("sheet").hidden=false;lock(true);
+}
+function updatePresume(){
+  const d=$("f-date").value;if(!isDate(d)){$("f-presume").hidden=true;return}
+  const y=addMonths(d,12),left=diffDays(y,today);
+  $("f-presume").hidden=left<0;
+  $("f-presume").textContent=`Do ${fmtD(y)} platí, že vada byla už při koupi. Obchod by musel dokázat opak.`;
+}
+$("f-date").onchange=updatePresume;
+function renderThumbs(){
+  $("thumbs").innerHTML=photos.map((p,i)=>`<div class="thumb"><img src="${p}" alt="Fotka ${i+1}, klepnutím zvětšíš" data-view="${i}"><button type="button" data-rm="${i}" aria-label="Odebrat fotku ${i+1}">×</button></div>`).join("")+
+    (photos.length<MAX_PHOTOS?`<span class="btn file-btn">${photos.length?"Přidat fotku":"Vyfotit účtenku"}<input id="f-photo" type="file" accept="image/*" aria-label="Přidat fotku"></span>`:"");
+  const inp=$("f-photo");if(inp)inp.onchange=onPhoto;
+}
+$("thumbs").onclick=e=>{
+  const rm=e.target.closest("[data-rm]");
+  if(rm){if(!armed(rm,"×","?"))return;photos.splice(+rm.dataset.rm,1);renderThumbs();return}
+  const v=e.target.closest("[data-view]");if(v){$("v-img").src=photos[+v.dataset.view];$("viewer").hidden=false}
+};
+function onPhoto(e){
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const url=URL.createObjectURL(f),img=new Image();
+  img.onload=()=>{
+    const s=Math.min(1,1400/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement("canvas");
+    c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
+    const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);
+    if(photos.length<MAX_PHOTOS)photos.push(c.toDataURL("image/jpeg",.75));
+    renderThumbs();
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);toast("Tuhle fotku se nepodařilo načíst. Zkus jinou.")};
+  img.src=url;
+}
+function renderClaims(){
+  const oc=claims.find(c=>!c.to);
+  $("claims").innerHTML=claims.length?claims.slice().sort((a,b)=>b.from.localeCompare(a.from)).map(c=>`<div class="claim">
+    <b>${c.to?`${fmtD(c.from)} → ${fmtD(c.to)} · ${esc(c.result||"vyřízeno")}`:`Probíhá od ${fmtD(c.from)} · vyřídit do ${fmtD(addDays(c.from,30))}`}</b>
+    ${c.note?`<span>${esc(c.note)}</span>`:""}</div>`).join(""):`<p>Zatím žádná reklamace.</p>`;
+  $("f-claim").textContent=oc?"Reklamace vyřízena":"Zahájit reklamaci";
+}
+function closeSheets(){["sheet","csheet","bsheet","viewer"].forEach(id=>$(id).hidden=true);lock(false)}
+function closeTop(){
+  if(!$("viewer").hidden){$("viewer").hidden=true;return}
+  if(!$("csheet").hidden){$("csheet").hidden=true;return}
+  closeSheets();
+}
+$("add").onclick=()=>openForm(null);
+$("f-cancel").onclick=closeSheets;
+["sheet","bsheet"].forEach(id=>$(id).addEventListener("click",e=>{if(e.target.id===id)closeSheets()}));
+$("csheet").addEventListener("click",e=>{if(e.target.id==="csheet")$("csheet").hidden=true});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeTop()});
+$("filters").onclick=e=>{const b=e.target.closest("[data-f]");if(b){filter=b.dataset.f;render()}};
+$("q").oninput=render;
+const findItem=id=>items.find(i=>i.id===id);
+$("list").onclick=e=>{const c=e.target.closest(".item");if(c)openForm(findItem(c.dataset.id))};
+$("list").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){const c=e.target.closest(".item");if(c){e.preventDefault();openForm(findItem(c.dataset.id))}}};
+$("viewer").onclick=()=>$("viewer").hidden=true;
+$("f-del").onclick=async()=>{
+  if(!armed($("f-del"),"Smazat","Klepni znovu pro smazání"))return;
+  const prev=items;items=items.filter(i=>i.id!==editId);
+  if(await persist()){closeSheets();render();toast("Smazáno")}else items=prev;
+};
+$("form").onsubmit=async e=>{
+  e.preventDefault();
+  const name=$("f-name").value.trim(),date=$("f-date").value,price=parsePrice($("f-price").value);
+  if(!name){toast("Doplň, co jsi koupil.");return}
+  if(!isDate(date)){toast("Doplň datum nákupu.");return}
+  if(price===null){toast("Cena musí být číslo, třeba 1299 nebo 1299,90.");return}
+  if(P(date)>today){toast("Datum nákupu nemůže být v budoucnu.");return}
+  if(sample){items=[];sample=false;editId=null;claims=[]}
+  const it={id:editId||"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name,shop:$("f-shop").value.trim(),
+    price,date,months:+$("f-months").value,order:$("f-order").value.trim(),note:$("f-note").value.trim(),photos:photos.slice(),claims};
+  const prev=items.slice();
+  const i=items.findIndex(x=>x.id===editId);if(i>=0)items[i]=it;else items.push(it);
+  if(await persist()){closeSheets();render();toast("Uloženo")}else items=prev;
+};
+
+/* ---------- claims ---------- */
+$("f-claim").onclick=()=>{
+  const oc=claims.find(c=>!c.to);
+  $("c-new").hidden=!!oc;$("c-end").hidden=!oc;
+  $("ctitle").textContent=oc?"Reklamace vyřízena":"Nová reklamace";
+  $("c-from").value=iso(today);$("c-from").max=iso(today);$("c-note").value="";
+  $("c-to").value=iso(today);$("c-to").max=iso(today);if(oc)$("c-to").min=oc.from;
+  $("csheet").hidden=false;
+};
+$("c-cancel").onclick=()=>$("csheet").hidden=true;
+$("cform").onsubmit=async e=>{
+  e.preventDefault();
+  const oc=claims.find(c=>!c.to);
+  if(oc){const to=$("c-to").value;if(!isDate(to)||P(to)<P(oc.from)||P(to)>today){toast("Datum vyřízení musí být mezi uplatněním a dneškem.");return}
+    oc.to=to;oc.result=$("c-res").value}
+  else{const from=$("c-from").value;if(!isDate(from)||P(from)>today){toast("Datum uplatnění nemůže být v budoucnu.");return}
+    claims.push({from,to:null,note:$("c-note").value.trim(),result:""})}
+  /* claims are part of the item: save right away so they are not lost if the form is cancelled */
+  const it=findItem(editId);
+  if(it&&!sample){const prev=it.claims;it.claims=claims.map(c=>({...c}));if(!(await persist())){it.claims=prev;return}render()}
+  $("csheet").hidden=true;renderClaims();toast(oc?"Reklamace uzavřená":"Reklamace zapsaná");
+};
+
+/* ---------- backup ---------- */
+const backupData=()=>JSON.stringify({app:"zaruky",v:2,items});
+$("backup").onclick=()=>{
+  const data=sample?"":backupData();
+  $("b-size").textContent=sample||!items.length?"Zatím nemáš žádná vlastní data.":`${items.length} položek, ${Math.max(1,Math.round(data.length/1024))} kB${items.some(i=>i.photos.length)?" včetně fotek":""}.${meta.lastBackup?` Poslední záloha ${fmtD(meta.lastBackup)}.`:""}`;
+  $("b-text").value="";disarm($("b-restore"),"Obnovit");$("bsheet").hidden=false;lock(true);
+};
+$("b-close").onclick=closeSheets;
+async function markBackup(){meta.lastBackup=iso(today);await Store.set(META,meta);renderBackupNote()}
+$("b-copy").onclick=()=>{
+  if(sample||!items.length){toast("Zatím není co zálohovat.");return}
+  const data=backupData();
+  const fallback=()=>{$("b-text").value=data;$("b-text").focus();$("b-text").select();toast("Zálohu jsem označil. Zkopíruj ji ručně a vlož do Poznámek.");markBackup()};
+  try{navigator.clipboard.writeText(data).then(()=>{toast("Záloha zkopírovaná. Vlož ji do Poznámek.");markBackup()},fallback)}catch(e){fallback()}
+};
+$("b-restore").onclick=async()=>{
+  let d;try{d=JSON.parse($("b-text").value.trim())}catch(e){toast("Tohle není platná záloha.");return}
+  const arr=Array.isArray(d)?d:d&&d.app==="zaruky"&&Array.isArray(d.items)?d.items:null;
+  if(!arr||!arr.every(x=>x&&typeof x.name==="string"&&x.name.trim()&&isDate(x.date))){toast("Tohle není záloha záruk.");return}
+  if(!armed($("b-restore"),"Obnovit",`Přepsat ${sample?0:items.length} → ${arr.length}?`))return;
+  const prev=items,prevS=sample;items=arr.map(normalize);sample=false;
+  if(await persist()){closeSheets();render();toast("Obnoveno")}else{items=prev;sample=prevS}
+};
+
+/* ---------- keep "today" current if the app stays open overnight ---------- */
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){const old=today.getTime();setToday();if(today.getTime()!==old)render()}});
+
+/* ---------- boot ---------- */
+(async()=>{
+  const [v,m]=await Promise.all([Store.get(KEY),Store.get(META)]);
+  if(m&&typeof m==="object")meta={lastBackup:isDate(m.lastBackup)?m.lastBackup:null};
+  if(Array.isArray(v)){items=v.filter(x=>x&&isDate(x.date)).map(normalize)}else{items=SAMPLE.map(normalize);sample=true}
+  render();
+})();
+</script>
+</body>
+</html>
