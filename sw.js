@@ -1,5 +1,5 @@
 /* zaruky – offline cache. Pages: network first (updates arrive right away), files: cache first + refresh in background. */
-const V="zaruky-20261023180000";
+const V="zaruky-20261024150000";
 const CORE=["./", "index.html", "manifest.webmanifest", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "favicon-32.png", "favicon.ico"];
 const EXT=/^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdnjs\.cloudflare\.com)$/;
 self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE.map(u=>new Request(u,{cache:"reload"})))).then(()=>self.skipWaiting()))});
